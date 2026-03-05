@@ -1,0 +1,40 @@
+# --- Gerenciamento de Dependências ---
+node_modules/
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+
+# --- Logs e Dados Temporários ---
+logs/*.log
+backend/logs/*.log
+*.log
+
+# --- Armazenamento de Arquivos (Crucial para seu projeto de OCR) ---
+# Ignora as imagens de upload e os documentos gerados para não lotar o Git
+backend/storage/uploads/*
+backend/storage/exports/*
+# Garante que as pastas existam, mas ignora o conteúdo
+!backend/storage/uploads/.gitkeep
+!backend/storage/exports/.gitkeep
+
+# --- Build e Distribuição ---
+dist/
+build/
+.next/
+out/
+
+# --- Variáveis de Ambiente (Segurança) ---
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# --- Arquivos de Sistema / IDE ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
