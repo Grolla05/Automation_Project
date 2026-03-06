@@ -63,9 +63,9 @@ function App() {
         aria-label="Alternar Tema"
       >
         {theme === 'light' ? (
-          <Moon size={20} className="text-apple-secondary group-hover:text-apple-text transition-colors" />
+          <Moon size={20} className="text-apple-secondary group-hover:text-yellow-500 transition-colors duration-300" />
         ) : (
-          <Sun size={20} className="text-apple-secondary group-hover:text-apple-text transition-colors" />
+          <Sun size={20} className="text-apple-secondary group-hover:text-yellow-500 transition-colors duration-300" />
         )}
       </button>
 
@@ -88,6 +88,7 @@ function App() {
           {currentScreen === 'UPLOAD' && (
             <UploadScreen 
               key="upload" 
+              sessionData={sessionData}
               onNext={handleNextFromUpload} 
               onBack={() => setCurrentScreen('WELCOME')} 
             />
@@ -98,6 +99,7 @@ function App() {
               key="loading" 
               sessionData={sessionData}
               onComplete={handleProcessComplete} 
+              onBack={() => setCurrentScreen('UPLOAD')}
             />
           )}
 
@@ -114,7 +116,7 @@ function App() {
       {/* Footer Branding */}
       <footer className="fixed bottom-6 left-0 right-0 text-center pointer-events-none z-10">
         <p className="text-[10px] text-apple-secondary uppercase tracking-[0.2em] font-semibold opacity-50">
-          OCR Document Generator • Powered by Engineering
+          OCR Document Generator • Powered by Felipe Grolla
         </p>
       </footer>
     </div>

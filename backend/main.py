@@ -1,11 +1,14 @@
 import os
 import logging
 import threading
+import subprocess
+import base64
 from datetime import datetime
 import webview
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from utils.logger_config import setup_logger
+from utils.cleanup import clean_temp_directories
 from services.ocr_service import OCRService
 from services.document_service import DocumentService
 from werkzeug.utils import secure_filename
@@ -18,10 +21,11 @@ CORS(app)
 
 UPLOAD_FOLDER = 'storage/uploads'
 EXPORT_FOLDER = 'storage/exports'
+LAYOUT_FOLDER = 'storage/layout'
 
 def init_project():
     """Garante que as pastas necessárias existam antes de começar."""
-    directories = [UPLOAD_FOLDER, EXPORT_FOLDER, 'logs']
+    directories = [UPLOAD_FOLDER, EXPORT_FOLDER, LAYOUT_FOLDER, 'logs']
     for directory in directories:
         if not os.path.exists(directory):
             os.makedirs(directory)
@@ -70,10 +74,22 @@ def process_documents():
         except:
             tests_list = [tests_raw] if tests_raw else []
 
-        # Usaremos o primeiro teste selecionado como nome para o layout
         main_test = tests_list[0] if tests_list else "Padrao"
-        
-        logger.info(f"[{request_id}] Setor: {sector} | Teste Principal: {main_test} | Arquivos: {len(files)}")
+
+        # Usaremos o arquivo de layout determinado no frontend (layout_id) que vem em base64
+        layout_id_b64 = request.form.get('layout_id')
+        if layout_id_b64:
+            try:
+                # Adiciona o padding que pode ser perdido na transferência
+                layout_id_b64 += "=" * ((4 - len(layout_id_b64) % 4) % 4)
+                layout_filename = base64.b64decode(layout_id_b64).decode('utf-8')
+            except Exception as e:
+                logger.error(f"Erro ao decodificar base64 ({layout_id_b64}): {str(e)}")
+                layout_filename = f"{main_test}.docx"
+        else:
+            layout_filename = f"{main_test}.docx"
+            
+        logger.info(f"[{request_id}] Setor: {sector} | Teste Principal: {main_test} | Layout Arquivo: {layout_filename} | Arquivos: {len(files)}")
         
         file_paths = []
         for file in files:
@@ -84,25 +100,41 @@ def process_documents():
             file_paths.append(file_path)
             logger.info(f"[{request_id}] Arquivo salvo: {filename}")
 
-        # Execução do OCR
-        ocr_results = ocr_service.process_batch(file_paths)
+        # Verificação do Arquivo de Layout antes de iniciar o OCR
+        layout_path = os.path.join(LAYOUT_FOLDER, layout_filename)
+        if not os.path.exists(layout_path):
+            logger.warning(f"[{request_id}] Falha: Layout '{layout_filename}' não encontrado.")
+            return jsonify({
+                "success": False, 
+                "error": "layout de relatório não registrado"
+            }), 400
+
+        # Execução do OCR informando o layout para cortes inteligentes
+        normalized_layout = layout_filename.replace('.docx', '')
+        ocr_results = ocr_service.process_batch(file_paths, layout_name=normalized_layout)
         
-        # Consolidação do texto
-        consolidated_text = ""
-        for name, text in ocr_results.items():
-            consolidated_text += f"\n--- {name} ---\n{text}\n"
+        # Preparando dados para injeção no Word
+        file_data_list = []
+        for file_path in file_paths:
+            name = os.path.basename(file_path)
+            text = ocr_results.get(name, "")
+            file_data_list.append({
+                "filename": name,
+                "text": text,
+                "path": file_path
+            })
 
         # Geração do Relatório usando Layout
         report_filename = f"Relatorio_{main_test.replace(' ', '_')}_{request_id}.docx"
         
-        # O layout deve ter o mesmo nome da opção selecionada (ex: "Bluetooth Low Energy.docx")
+        # O layout_name que passamos pro document_service terá a extensao .docx removida
         output_path = doc_service.generate_report(
-            consolidated_text, 
+            file_data=file_data_list, 
             filename=report_filename, 
-            layout_name=main_test
+            layout_name=layout_filename.replace('.docx', '')
         )
         
-        logger.info(f"[{request_id}] Sucesso! Relatório gerado com layout '{main_test}': {report_filename}")
+        logger.info(f"[{request_id}] Sucesso! Relatório gerado com layout '{layout_filename}': {report_filename}")
         
         return jsonify({
             "success": True, 
@@ -112,20 +144,80 @@ def process_documents():
         logger.error(f"[{request_id}] Erro crítico no processamento: {str(e)}", exc_info=True)
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route('/api/check_layout', methods=['POST'])
+def check_layout():
+    """
+    Verifica se o layout (template .docx) existe na pasta de layouts.
+    """
+    try:
+        data = request.json or {}
+        tests_list = data.get('tests', [])
+        main_test = tests_list[0] if tests_list else "Padrao"
+        
+        layout_id_b64 = data.get('layout_id')
+        if layout_id_b64:
+            try:
+                # Adiciona o padding que pode ser perdido na transferência
+                layout_id_b64 += "=" * ((4 - len(layout_id_b64) % 4) % 4)
+                layout_filename = base64.b64decode(layout_id_b64).decode('utf-8')
+            except Exception as e:
+                logger.error(f"Erro ao decodificar base64 em check_layout ({layout_id_b64}): {str(e)}")
+                layout_filename = f"{main_test}.docx"
+        else:
+            layout_filename = f"{main_test}.docx"
+        
+        layout_path = os.path.join(LAYOUT_FOLDER, layout_filename)
+        
+        if not os.path.exists(layout_path):
+            return jsonify({
+                "success": False, 
+                "error": "não há layout cadastrado para este Ensaio"
+            }), 400
+            
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.error(f"Erro ao checar layout: {str(e)}", exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @app.route('/api/download/<filename>', methods=['GET'])
 def download_file(filename):
+    # Executa a limpeza do sistema retendo apenas o arquivo sacado
+    clean_temp_directories(keep_export_filename=filename)
     return send_from_directory(EXPORT_FOLDER, filename, as_attachment=True)
+
+def get_windows_username():
+    """Obtém o nome do usuário/máquina logado via PowerShell."""
+    try:
+        # PowerShell command para pegar o nome completo ou o USERNAME
+        cmd = ["powershell", "-NoProfile", "-Command", "(Get-WmiObject -Class Win32_UserAccount -Filter \"Name='$env:USERNAME' and Domain='$env:USERDOMAIN'\").FullName"]
+        
+        # creationflags=subprocess.CREATE_NO_WINDOW (0x08000000) impede de abrir janela pop-up preta
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True, creationflags=0x08000000)
+        fullname = result.stdout.strip()
+        
+        if fullname:
+            return fullname
+            
+        # Fallback de segurança caso fullname não exista
+        cmd_fallback = ["powershell", "-NoProfile", "-Command", "$env:USERNAME"]
+        res_fallback = subprocess.run(cmd_fallback, capture_output=True, text=True, check=True, creationflags=0x08000000)
+        return res_fallback.stdout.strip() or "Engenheiro"
+    except Exception as e:
+        logger.error(f"Erro ao obter usuário via PowerShell: {str(e)}")
+        return "Engenheiro"
 
 @app.route('/api/user/info', methods=['GET'])
 def get_user_info():
-    return jsonify({"name": "Engenheiro de Ensaios"})
+    username = get_windows_username()
+    return jsonify({"name": username})
 
 # --- INTERFACE DESKTOP (PyWebView) ---
 
 class Api:
     """API exposta ao JavaScript via window.pywebview.api"""
     def getUserInfo(self):
-        return {"name": "Engenheiro de Ensaios (Desktop)"}
+        username = get_windows_username()
+        return {"name": username}
 
     def processImages(self, data):
         # Este método pode ser usado para bypassar o Flask se desejar
@@ -138,6 +230,8 @@ class Api:
         try:
             full_path = os.path.abspath(os.path.join(EXPORT_FOLDER, filename))
             if os.path.exists(full_path):
+                # Executa a limpeza do sistema e de lixos temporários em upload
+                clean_temp_directories(keep_export_filename=filename)
                 os.startfile(full_path) # Comando específico Windows
                 return {"success": True}
             return {"success": False, "error": "Arquivo não encontrado."}
@@ -170,7 +264,7 @@ if __name__ == "__main__":
 
     api = Api()
     window = webview.create_window(
-        'Automação de Laudos OCR', 
+        "OCR automation for reports", 
         url=window_url, 
         js_api=api,
         width=1200,

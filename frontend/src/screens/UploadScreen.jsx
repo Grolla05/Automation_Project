@@ -4,12 +4,28 @@ import { twMerge } from 'tailwind-merge';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { Upload, X, FileText, Image as ImageIcon } from 'lucide-react';
+import { api } from '../services/api';
 
-const UploadScreen = ({ onNext, onBack }) => {
+const UploadScreen = ({ sessionData, onNext, onBack }) => {
   const [files, setFiles] = useState([]);
   const [isHovering, setIsHovering] = useState(false);
   const [error, setError] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef(null);
+
+  const handleProcessClick = async () => {
+    setIsProcessing(true);
+    setError(null);
+    try {
+      await api.checkLayout(sessionData?.tests || []);
+      onNext(files);
+    } catch (err) {
+      setError(err.message || "não há layout cadastrado para este Ensaio");
+      setTimeout(() => setError(null), 4000);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleFileChange = (e) => {
     const selectedFiles = Array.from(e.target.files);
@@ -165,13 +181,13 @@ const UploadScreen = ({ onNext, onBack }) => {
 
           {/* Actions */}
           <div className="flex justify-between items-center pt-4">
-            <Button variant="ghost" onClick={onBack}>Voltar</Button>
+            <Button variant="ghost" onClick={onBack} disabled={isProcessing}>Voltar</Button>
             <Button 
-              disabled={files.length === 0}
-              onClick={() => onNext(files)}
+              disabled={files.length === 0 || isProcessing}
+              onClick={handleProcessClick}
               className="px-12"
             >
-              Processar {files.length > 0 && `(${files.length})`}
+              {isProcessing ? "Verificando..." : `Processar ${files.length > 0 ? `(${files.length})` : ''}`}
             </Button>
           </div>
         </div>

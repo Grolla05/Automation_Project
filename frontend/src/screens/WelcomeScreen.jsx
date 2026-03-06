@@ -4,31 +4,22 @@ import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { ChevronDown, Check } from 'lucide-react';
 
-const SECTOR_DATA = {
-  "P3 - EMC/RF": [
-    "Bluetooth Low Energy",
-    "Wi-Fi 2.4Ghz",
-    "Wi-Fi 5Ghz",
-    "DFS/TPC"
-  ],
-  "P4 - MED": [
-    "Tensão Suportável",
-    "Corrente de Fuga",
-    "Resistência de Isolamento",
-    "Componentes Críticos"
-  ],
-  "TESTE": [
-    "TESTE",
-  ]
-};
+import { SECTOR_DATA } from '../lib/data';
 
 const WelcomeScreen = ({ onNext, userData }) => {
   const [selectedSector, setSelectedSector] = useState("");
+  const [selectedTestType, setSelectedTestType] = useState("");
   const [selectedTests, setSelectedTests] = useState([]);
 
   const handleSectorChange = (e) => {
     setSelectedSector(e.target.value);
+    setSelectedTestType("");
     setSelectedTests([]); // Reset tests when sector changes
+  };
+
+  const handleTestTypeChange = (e) => {
+    setSelectedTestType(e.target.value);
+    setSelectedTests([]); // Reset tests when test type changes
   };
 
   const toggleTest = (test) => {
@@ -39,7 +30,8 @@ const WelcomeScreen = ({ onNext, userData }) => {
     );
   };
 
-  const availableTests = selectedSector ? SECTOR_DATA[selectedSector] : [];
+  const availableTestTypes = selectedSector ? Object.keys(SECTOR_DATA[selectedSector]) : [];
+  const availableTests = selectedTestType ? SECTOR_DATA[selectedSector][selectedTestType].flat() : [];
 
   return (
     <motion.div 
@@ -81,12 +73,36 @@ const WelcomeScreen = ({ onNext, userData }) => {
                 exit={{ opacity: 0, height: 0 }}
                 className="space-y-3 overflow-hidden"
               >
+                <label className="text-sm font-semibold text-apple-secondary uppercase tracking-wider">Tipo de Ensaio</label>
+                <div className="relative">
+                  <select 
+                    value={selectedTestType}
+                    onChange={handleTestTypeChange}
+                    className="w-full appearance-none bg-apple-bg border border-apple-gray rounded-apple px-4 py-3 text-apple-text focus:outline-none focus:ring-2 focus:ring-apple-blue/20 transition-all cursor-pointer"
+                  >
+                    <option value="" disabled>Selecione o tipo de ensaio...</option>
+                    {availableTestTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-apple-secondary pointer-events-none" size={20} />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {selectedTestType && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="space-y-3 overflow-hidden mt-4"
+              >
                 <label className="text-sm font-semibold text-apple-secondary uppercase tracking-wider">
-                  {selectedSector === "P3 - EMC/RF" || selectedSector === "P4 - MED" ? "Em Breve" : "Ensaios Disponíveis"}
+                  Itens e Ensaios para {selectedTestType}
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {availableTests.map(test => {
-                    const isDisabled = selectedSector === "P3 - EMC/RF" || selectedSector === "P4 - MED";
+                    const isDisabled = !["TESTE", "TESTE1", "TESTE2"].includes(test); // Demo restriction
                     return (
                       <motion.div 
                         key={test}
@@ -118,8 +134,8 @@ const WelcomeScreen = ({ onNext, userData }) => {
 
           <div className="pt-4 flex justify-end">
             <Button 
-              disabled={!selectedSector || selectedTests.length === 0}
-              onClick={() => onNext({ sector: selectedSector, tests: selectedTests })}
+              disabled={!selectedTestType || selectedTests.length === 0}
+              onClick={() => onNext({ sector: selectedSector, testType: selectedTestType, tests: selectedTests })}
               className="w-full md:w-auto px-12"
             >
               Próximo

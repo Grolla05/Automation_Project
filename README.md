@@ -10,11 +10,11 @@ Aqui estão as próximas atividades planejadas para evolução da ferramenta:
 
 ### 🛠️ Estruturação e Layout
 
-- [ ] **Padronização de Nomenclatura**: Sincronizar os nomes das opções de ensaio no Frontend com os nomes dos arquivos `.docx` na pasta `storage/layouts`.
+- [ ] **Padronização de Nomenclatura**: Sincronizar os nomes das opções de ensaio no Frontend com os nomes dos arquivos `.docx` na pasta `storage/layout`.
 - [ ] **Protótipo de Layout Master**: Criar um arquivo `.docx` modelo contendo:
   - Tabelas estruturadas para resultados.
   - Espaços reservados (placeholders) para inserção de imagens.
-  - Campos dinâmicos (ex: `{{DATA}}`, `{{ENGENHEIRO}}`, `{{CONTEUDO}}`).
+  - Campos dinâmicos (ex: `[DATA]`, `[ENGENHEIRO]`, `[CONTEUDO]`).
 
 ### 🔍 Validação e Inteligência
 
@@ -42,7 +42,7 @@ Aqui estão as próximas atividades planejadas para evolução da ferramenta:
 ```text
 /backend
   /services      # Lógica de OCR e Word
-  /storage       # Uploads, Layouts e Exportações
+  /storage       # Uploads, Layout e Exportações
   /utils         # Configurações de Log e Helpers
 /frontend
   /src/screens   # Interface do Usuário
@@ -55,20 +55,10 @@ Aqui estão as próximas atividades planejadas para evolução da ferramenta:
 ## ⚙️ Como Executar
 
 1. Certifique-se de ter o **Tesseract OCR** e o **Poppler** instalados no Windows.
-2. Instale as dependências: `pip install -r backend/requirements.txt`.
-3. Rode o software: `python backend/main.py`.
+2. Instale as dependências do backend: `pip install -r backend/requirements.txt`.
+3. Instale as dependências do frontend: `npm install --legacy-peer-deps`.
+4. Rode o software: `python backend/main.py`.
 
 ---
 
 _Desenvolvido com foco em precisão técnica e agilidade no fluxo de engenharia._
-
----
-
-## ✅ Checklist de Implementação
-
-- [ ] **Sincronização**: Bate de nomes entre Frontend e Layouts (.docx)
-- [ ] **Validação**: Verificação de nomes das fotos subidas vs esperado
-- [ ] **Design**: Criação do Layout com tabelas e quadros de imagem
-- [ ] **Inteligência**: Mapeamento de OCR por arquivo de foto individual
-- [ ] **Automação**: Injeção automática de dados no layout alvo
-

@@ -1,6 +1,7 @@
 /**
  * Service to interact with Flask Backend or PyWebView.
  */
+import { LAYOUT_MAPPING } from "../lib/data";
 
 const BASE_URL = "http://localhost:5000/api";
 
@@ -31,6 +32,18 @@ export const api = {
     formData.append("sector", sector);
     formData.append("tests", JSON.stringify(tests));
 
+    const mainTest = tests[0] || "Padrao";
+    const layoutId = LAYOUT_MAPPING[mainTest] || btoa(`${mainTest}.docx`);
+
+    console.log(
+      `[API processImages] Ensaio principal detectado: "${mainTest}"`,
+    );
+    console.log(
+      `[API processImages] Mapping para Layout ID (Base64): "${layoutId}"`,
+    );
+
+    formData.append("layout_id", layoutId);
+
     files.forEach((file) => {
       formData.append("files", file);
     });
@@ -55,6 +68,33 @@ export const api = {
       console.error("Erro na comunicação com o backend:", err);
       throw err;
     }
+  },
+
+  // Check if layout exists before uploading
+  checkLayout: async (tests) => {
+    const mainTest = tests[0] || "Padrao";
+    const layoutId = LAYOUT_MAPPING[mainTest] || btoa(`${mainTest}.docx`);
+
+    console.log(`[API checkLayout] Validando Ensaio: "${mainTest}"`);
+    console.log(
+      `[API checkLayout] Enviando Layout ID (Base64) para o Backend: "${layoutId}"`,
+    );
+
+    const response = await fetch(`${BASE_URL}/check_layout`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ tests, layout_id: layoutId }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(
+        result.error || "não há layout cadastrado para este Ensaio",
+      );
+    }
+    return result.success;
   },
 
   // Download or Open the generated file
