@@ -185,6 +185,25 @@ def download_file(filename):
     clean_temp_directories(keep_export_filename=filename)
     return send_from_directory(EXPORT_FOLDER, filename, as_attachment=True)
 
+def get_windows_profile_picture():
+    """Obtém a foto de perfil do usuário logado via PowerShell/Registry do Windows 10/11."""
+    try:
+        # Pega a foto de perfil de resolução 240px no cache do Registry
+        cmd = [
+            "powershell", "-NoProfile", "-Command",
+            "(Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AccountPicture\\Users\\*' | Select-Object -ExpandProperty Image240 -ErrorAction SilentlyContinue) | Select-Object -First 1"
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True, creationflags=0x08000000)
+        img_path = result.stdout.strip()
+        
+        if img_path and os.path.exists(img_path):
+            with open(img_path, "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+                return f"data:image/jpeg;base64,{encoded_string}"
+    except Exception as e:
+        logger.error(f"Erro ao obter foto de perfil: {str(e)}")
+    return None
+
 def get_windows_username():
     """Obtém o nome do usuário/máquina logado via PowerShell."""
     try:
@@ -209,7 +228,8 @@ def get_windows_username():
 @app.route('/api/user/info', methods=['GET'])
 def get_user_info():
     username = get_windows_username()
-    return jsonify({"name": username})
+    picture = get_windows_profile_picture()
+    return jsonify({"name": username, "picture": picture})
 
 # --- INTERFACE DESKTOP (PyWebView) ---
 
@@ -217,7 +237,8 @@ class Api:
     """API exposta ao JavaScript via window.pywebview.api"""
     def getUserInfo(self):
         username = get_windows_username()
-        return {"name": username}
+        picture = get_windows_profile_picture()
+        return {"name": username, "picture": picture}
 
     def processImages(self, data):
         # Este método pode ser usado para bypassar o Flask se desejar
@@ -238,6 +259,57 @@ class Api:
         except Exception as e:
             logger.error(f"Erro ao abrir arquivo: {str(e)}")
             return {"success": False, "error": str(e)}
+
+    def getSettings(self):
+        """Lê as configurações do arquivo JSON."""
+        try:
+            # Caminho de persistência (tenta na lib do frontend primeiro, se não existir usa storage)
+            settings_path = os.path.abspath("../frontend/src/lib/user_settings.json")
+            if not os.path.exists(settings_path):
+                settings_path = os.path.abspath("storage/user_settings.json")
+            
+            if os.path.exists(settings_path):
+                import json
+                with open(settings_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            return {"theme": "light"} # Default
+        except Exception as e:
+            logger.error(f"Erro ao ler configurações: {str(e)}")
+            return {"theme": "light"}
+
+    def saveSettings(self, settings):
+        """Salva as configurações no arquivo JSON."""
+        try:
+            # Garante que as configurações persistam em storage/
+            settings_path = os.path.abspath("storage/user_settings.json")
+            
+            # Também tenta atualizar na pasta lib do frontend para dev
+            dev_path = os.path.abspath("../frontend/src/lib/user_settings.json")
+            
+            import json
+            for path in [settings_path, dev_path]:
+                try:
+                    # Cria diretórios se necessário (especialmente para storage/)
+                    os.makedirs(os.path.dirname(path), exist_ok=True)
+                    with open(path, 'w', encoding='utf-8') as f:
+                        json.dump(settings, f, indent=2, ensure_ascii=False)
+                except:
+                    continue
+                    
+            return {"success": True}
+        except Exception as e:
+            logger.error(f"Erro ao salvar configurações: {str(e)}")
+            return {"success": False, "error": str(e)}
+
+@app.route('/api/settings', methods=['GET', 'POST'])
+def handle_settings():
+    api_instance = Api()
+    if request.method == 'GET':
+        return jsonify(api_instance.getSettings())
+    else:
+        data = request.json
+        res = api_instance.saveSettings(data)
+        return jsonify(res)
 
 def run_flask():
     """Inicia o servidor Flask em uma thread separada."""
@@ -267,10 +339,10 @@ if __name__ == "__main__":
         "OCR automation for reports", 
         url=window_url, 
         js_api=api,
-        width=1200,
-        height=800,
+        width=1280,
+        height=1000,
         resizable=True,
-        background_color='#ffffff'
+        background_color='#F5F5F7'
     )
 
     # 3. Inicia o loop da interface desktop

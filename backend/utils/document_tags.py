@@ -105,16 +105,16 @@ def extract_advanced_metrics(text):
 
     return mapped_data
 
-def get_text_tags(nome_arquivo, texto_extraido, layout_name=None):
+def get_text_tags(nome_arquivo, texto_extraido, layout_name=None, sufixo=""):
     """
     Retorna o dicionário de mapeamento de tags de texto para substituição no layout Word.
     """
     # 1. Tags Padrões (Aplicáveis a todos os layouts)
     tags = {
-        '[NOME_ARQUIVO_UPLOAD]': nome_arquivo,
-        '[DADOS_CAPTURADOS_ARQUIVO_UPLOAD]': texto_extraido,
-        '[INSERIR_DADO_FOTO]': texto_extraido,
-        '[DADO_EXTRAIDO_1]': texto_extraido,
+        f'[NOME_ARQUIVO_UPLOAD{sufixo}]': nome_arquivo,
+        f'[DADOS_CAPTURADOS_ARQUIVO_UPLOAD{sufixo}]': texto_extraido,
+        f'[INSERIR_DADO_FOTO{sufixo}]': texto_extraido,
+        f'[DADO_EXTRAIDO_1{sufixo}]': texto_extraido,
         '{{CONTEUDO}}': texto_extraido
     }
     
@@ -122,14 +122,23 @@ def get_text_tags(nome_arquivo, texto_extraido, layout_name=None):
     normalized_name = str(layout_name).upper().replace('_LAYOUT', '') if layout_name else ""
 
     # 2. Despachante de Regra por Layout
-    if normalized_name == 'TESTE1':
-        # Para TESTE1, o comportamento padrão atual atende, mas aqui futuramente você adiciona regras específicas.
-        pass
-        
-    elif normalized_name == 'TESTE2':
-        # Teste 2 / Analisador de Espectro necessita das tags estraídas avançadas.
+    if normalized_name in ['TESTE1', 'TESTE2']:
+        # Testes 1 e 2 / Analisador de Espectro necessitam das tags extraídas avançadas.
         advanced_tags = extract_advanced_metrics(texto_extraido)
-        tags.update(advanced_tags)
+        
+        # Limpa as variáveis padrões que despejam o texto bruto inteiro do OCR
+        # Assim, garantimos que nenhum texto "a mais" (sujeira) vaze para o Word
+        tags[f'[DADOS_CAPTURADOS_ARQUIVO_UPLOAD{sufixo}]'] = ""
+        tags[f'[INSERIR_DADO_FOTO{sufixo}]'] = ""
+        tags[f'[DADO_EXTRAIDO_1{sufixo}]'] = ""
+        tags['{{CONTEUDO}}'] = ""
+        
+        # Insere as tags mesclando com o sufixo numérico de arquivo (ex: [FREQ_EXTRAIDA1])
+        if sufixo:
+            for k, v in advanced_tags.items():
+                tags[k.replace(']', f'{sufixo}]')] = v
+        else:
+            tags.update(advanced_tags)
         
     else:
         # Fallback genérico para os demais layouts
@@ -137,11 +146,11 @@ def get_text_tags(nome_arquivo, texto_extraido, layout_name=None):
     
     return tags
 
-def get_image_tags():
+def get_image_tags(sufixo=""):
     """
     Retorna a lista de tags que sinalizam a inserção de imagens no relatório.
     """
     return [
-        '[IMAGEM_UPLOAD]',
-        '[IMAGEM_UPLOAD_ANEXADA]'
+        f'[IMAGEM_UPLOAD{sufixo}]',
+        f'[IMAGEM_UPLOAD_ANEXADA{sufixo}]'
     ]

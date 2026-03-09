@@ -1,13 +1,13 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lexend:wght@300;400;500;600;700&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --color-apple-bg: #F5F5F7;
-  --color-apple-white: #FFFFFF;
-  --color-apple-text: #1D1D1F;
-  --color-apple-secondary: #86868B;
-  --color-apple-blue: #0071E3;
-  --color-apple-gray: #E8E8ED;
+  --color-apple-bg: #f5f5f7;
+  --color-apple-white: #ffffff;
+  --color-apple-text: #1d1d1f;
+  --color-apple-secondary: #86868b;
+  --color-apple-blue: #0071e3;
+  --color-apple-gray: #e8e8ed;
 
   --radius-apple: 12px;
   --radius-apple-lg: 20px;
@@ -15,24 +15,27 @@
   --shadow-apple: 0 4px 12px rgba(0, 0, 0, 0.05);
   --shadow-apple-hover: 0 8px 24px rgba(0, 0, 0, 0.1);
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-sans:
+    "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-dyslexic: "Lexend", sans-serif;
 }
 
 /* Dark Mode Overrides */
 .dark {
-  --color-apple-bg: #000000;
-  --color-apple-white: #1C1C1E;
-  --color-apple-text: #F5F5F7;
-  --color-apple-secondary: #A1A1A6;
-  --color-apple-blue: #0A84FF;
-  --color-apple-gray: #2C2C2E;
-  
+  --color-apple-bg: #333333;
+  --color-apple-white: #3e3e3e;
+  --color-apple-text: #f5f5f7;
+  --color-apple-secondary: #a1a1a6;
+  --color-apple-blue: #409cff;
+  --color-apple-gray: #4f4f4f;
   --shadow-apple: 0 4px 12px rgba(0, 0, 0, 0.5);
   --shadow-apple-hover: 0 8px 24px rgba(0, 0, 0, 0.7);
 }
 
 @layer base {
   :root {
+    --app-font-scale: 1;
     font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
     line-height: 1.5;
     font-weight: 400;
@@ -42,7 +45,32 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transition:
+      background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+      color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: calc(100% * var(--app-font-scale));
+  }
+  
+  /* Font Size Settings via useTheme */
+  :root.font-size-large {
+    --app-font-scale: 1.15;
+  }
+  :root.font-size-extralarge {
+    --app-font-scale: 1.30;
+  }
+
+  /* Dyslexic Font via useTheme */
+  body.dyslexic-font * {
+    font-family: "Lexend", sans-serif !important;
+  }
+
+  /* Cursor Size via useTheme */
+  body.cursor-large, body.cursor-large * {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='white' stroke='black' stroke-width='1.5'%3E%3Cpath d='M3.5 3L11.5 21L14.5 14.5L21 11.5L3.5 3Z'/%3E%3C/svg%3E"), auto !important;
+  }
+  
+  body.cursor-extralarge, body.cursor-extralarge * {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='white' stroke='black' stroke-width='1'%3E%3Cpath d='M3.5 3L11.5 21L14.5 14.5L21 11.5L3.5 3Z'/%3E%3C/svg%3E"), auto !important;
   }
 
   body {
@@ -64,10 +92,10 @@
     color: inherit;
     background-color: transparent;
   }
-  
+
   option {
     background-color: var(--color-apple-white);
-    color: var(--color-apple-text);
+    color: var(--color-apple-text); 
   }
 }
 
@@ -93,14 +121,24 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D1D1D6;
+  background: #d1d1d6;
   border-radius: 10px;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: #3A3A3C;
+  background: #3a3a3c;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #A1A1A6;
+  background: #a1a1a6;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
 }

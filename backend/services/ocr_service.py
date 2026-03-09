@@ -128,8 +128,8 @@ class OCRService:
                 # Normalização para comparação robusta (ex: 'teste2_layout' -> 'TESTE2')
                 normalized_name = str(layout_name).upper().replace('_LAYOUT', '') if layout_name else ""
                 
-                # Filtro de Região de Interesse (ROI) para TESTE2
-                if normalized_name == 'TESTE2':
+                # Filtro de Região de Interesse (ROI) para TESTE1 e TESTE2
+                if normalized_name in ['TESTE1', 'TESTE2']:
                     width, height = img.size
                     
                     # --- PASSO 1: LOCALIZAÇÃO DE ÂNCORAS ---

@@ -63,9 +63,10 @@ const LoadingScreen = ({ sessionData, onComplete }) => {
 
   return (
     <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      initial={{ opacity: 0, x: 50 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -50 }}
+      transition={{ duration: 0.4, ease: "easeInOut" }}
       className="flex flex-col items-center justify-center min-h-[80vh] w-full px-4"
     >
       <Card className="max-w-md">

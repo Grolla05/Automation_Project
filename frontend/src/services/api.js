@@ -117,4 +117,33 @@ export const api = {
     window.open(downloadUrl, "_blank");
     console.log("Iniciando download via browser de:", downloadUrl);
   },
+
+  getSettings: async () => {
+    if (isWebView() && window.pywebview.api?.getSettings) {
+      return await window.pywebview.api.getSettings();
+    }
+    try {
+      const response = await fetch(`${BASE_URL}/settings`);
+      return await response.json();
+    } catch {
+      return { theme: "light" };
+    }
+  },
+
+  saveSettings: async (settings) => {
+    if (isWebView() && window.pywebview.api?.saveSettings) {
+      return await window.pywebview.api.saveSettings(settings);
+    }
+    try {
+      const response = await fetch(`${BASE_URL}/settings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      });
+      return await response.json();
+    } catch (err) {
+      console.error("Erro ao salvar settings:", err);
+      return { success: false };
+    }
+  },
 };

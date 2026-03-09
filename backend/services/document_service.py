@@ -53,20 +53,39 @@ class DocumentService:
             import re
             from utils.document_tags import get_text_tags, get_image_tags
             
-            # Pega o primeiro arquivo como fonte de dados principal por enquanto
             if not file_data:
                 file_data = [{"filename": "Nenhum arquivo", "text": "Sem dados", "path": None}]
             
-            primeiro_arquivo = file_data[0]
-            nome_arquivo = primeiro_arquivo.get("filename", "")
-            texto_extraido = primeiro_arquivo.get("text", "")
-            caminho_imagem = primeiro_arquivo.get("path", None)
-            
-            # Passamos o layout_name aqui para o switch-case interno identificar.
-            # Convertendo "TESTE2_layout" para "TESTE2" se vier do nome real.
             normalized_layout = layout_name.replace('_layout', '') if layout_name else None
-            tags_texto = get_text_tags(nome_arquivo, texto_extraido, normalized_layout)
-            tags_imagem = get_image_tags()
+            
+            tags_texto = {}
+            tags_imagem_list = []
+            
+            # Ordenamos os arquivos alfabeticamente para que: image_teste2.1 seja 1, image_teste2.2 seja 2
+            file_data_sorted = sorted(file_data, key=lambda x: str(x.get("filename", "")).lower())
+            
+            for idx, arquivo in enumerate(file_data_sorted):
+                # O sufixo numérico (ex: 1 ou 2)
+                sufixo = str(idx + 1)
+                
+                nome_arq = arquivo.get("filename", "")
+                text_ext = arquivo.get("text", "")
+                caminho = arquivo.get("path", None)
+                
+                # Gera as Tags COM SUFIXO e injeta no dicionário gigante
+                tags_texto.update(get_text_tags(nome_arq, text_ext, normalized_layout, sufixo=sufixo))
+                
+                # Para manter compatibilidade retroativa com os outros templates de uma imagem apenas:
+                if idx == 0:
+                    tags_texto.update(get_text_tags(nome_arq, text_ext, normalized_layout, sufixo=""))
+                    
+                # E associa a imagem física àquela tag pra hora da injeção
+                for timg in get_image_tags(sufixo=sufixo):
+                    tags_imagem_list.append({"tag": timg, "caminho": caminho})
+                
+                if idx == 0:
+                    for timg in get_image_tags(sufixo=""):
+                        tags_imagem_list.append({"tag": timg, "caminho": caminho})
             
             # Regex para dividir a string preservando as tags (ex: 'Algo [TAG] a mais' -> ['Algo ', '[TAG]', ' a mais'])
             padrao_tags = re.compile('(' + '|'.join(map(re.escape, tags_texto.keys())) + ')')
@@ -74,16 +93,19 @@ class DocumentService:
             def replace_in_paragraphs(paragraphs):
                 for paragraph in paragraphs:
                     # Identifica se há tag de imagem
-                    for tag_img in tags_imagem:
+                    for img_config in tags_imagem_list:
+                        tag_img = img_config["tag"]
+                        caminho_imagem_tg = img_config["caminho"]
+                        
                         if tag_img in paragraph.text:
                             paragraph.text = paragraph.text.replace(tag_img, '')
                             # Adiciona a imagem no parágrafo
-                            if caminho_imagem and os.path.exists(caminho_imagem) and caminho_imagem.lower().endswith(('.png', '.jpg', '.jpeg')):
+                            if caminho_imagem_tg and os.path.exists(caminho_imagem_tg) and caminho_imagem_tg.lower().endswith(('.png', '.jpg', '.jpeg')):
                                 run = paragraph.add_run()
                                 try:
-                                    run.add_picture(caminho_imagem, width=Inches(5))
+                                    run.add_picture(caminho_imagem_tg, width=Inches(5))
                                 except Exception as e:
-                                    logger.error(f"Erro ao inserir imagem {caminho_imagem}: {str(e)}")
+                                    logger.error(f"Erro ao inserir imagem {caminho_imagem_tg}: {str(e)}")
 
                     # Substituição de textos com Grifo Amarelo
                     if any(t in paragraph.text for t in tags_texto.keys()):

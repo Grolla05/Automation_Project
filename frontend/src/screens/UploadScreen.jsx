@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { twMerge } from 'tailwind-merge';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
-import { Upload, X, FileText, Image as ImageIcon } from 'lucide-react';
+import { Upload, X, FileText, Image as ImageIcon, CheckCircle2, Circle } from 'lucide-react';
 import { api } from '../services/api';
 
 const UploadScreen = ({ sessionData, onNext, onBack }) => {
@@ -12,6 +12,20 @@ const UploadScreen = ({ sessionData, onNext, onBack }) => {
   const [error, setError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef(null);
+
+  const isTeste2 = sessionData?.tests?.includes("TESTE2");
+  const requiredFilesTeste2 = ["image_test2.1", "image_test2.2"];
+
+  const hasFile = (reqName) => files.some(f => {
+    // Normaliza nome do arquivo ignorando extensão e maiúsculas/minúsculas
+    const nameWithoutExt = f.name.split('.').slice(0, -1).join('.');
+    return nameWithoutExt.toLowerCase() === reqName.toLowerCase() || 
+           f.name.toLowerCase().startsWith(reqName.toLowerCase());
+  });
+
+  const missingFiles = isTeste2 ? requiredFilesTeste2.filter(req => !hasFile(req)) : [];
+  const hasExtraFiles = isTeste2 ? files.length > requiredFilesTeste2.length : false;
+  const canProcess = isTeste2 ? (missingFiles.length === 0 && !hasExtraFiles) : files.length > 0;
 
   const handleProcessClick = async () => {
     setIsProcessing(true);
@@ -75,9 +89,10 @@ const UploadScreen = ({ sessionData, onNext, onBack }) => {
 
   return (
     <motion.div 
-      initial={{ opacity: 0, x: 20 }}
+      initial={{ opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
+      exit={{ opacity: 0, x: -50 }}
+      transition={{ duration: 0.4, ease: "easeInOut" }}
       className="flex flex-col items-center justify-center min-h-[80vh] w-full px-4"
     >
       <div className="text-center mb-10">
@@ -87,6 +102,43 @@ const UploadScreen = ({ sessionData, onNext, onBack }) => {
 
       <Card className="max-w-3xl">
         <div className="space-y-6">
+          {/* File Requirements for TESTE2 */}
+          {isTeste2 && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-apple-blue/5 border border-apple-blue/20 rounded-apple p-5"
+            >
+              <h3 className="text-sm font-semibold text-apple-blue mb-3">Pré-requisitos do Ensaio TESTE2</h3>
+              <p className="text-xs text-apple-secondary mb-3">
+                Para processar este ensaio, você deve anexar obrigatoriamente as seguintes imagens:
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {requiredFilesTeste2.map(reqName => {
+                  const isMet = hasFile(reqName);
+                  return (
+                    <div 
+                      key={reqName} 
+                      className={twMerge(
+                        "flex items-center space-x-3 p-3 rounded-lg border transition-colors",
+                        isMet 
+                          ? "bg-green-50 border-green-200 text-green-700 dark:bg-green-500/10 dark:border-green-500/20" 
+                          : "bg-white border-apple-gray text-apple-secondary dark:bg-apple-gray/20 dark:border-apple-gray/30"
+                      )}
+                    >
+                      {isMet ? (
+                        <CheckCircle2 size={18} className="text-green-500 flex-shrink-0" />
+                      ) : (
+                        <Circle size={18} className="text-apple-secondary/50 flex-shrink-0" />
+                      )}
+                      <span className="font-medium text-sm">{reqName}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+
           {/* Dropzone Area */}
           <div 
             onDragOver={handleDragOver}
@@ -140,6 +192,16 @@ const UploadScreen = ({ sessionData, onNext, onBack }) => {
                 {error}
               </motion.div>
             )}
+            {!error && hasExtraFiles && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="bg-red-500/10 border border-red-500/20 text-red-500 p-3 rounded-apple text-sm font-medium text-center"
+              >
+                Você anexou arquivos extras. Por favor, mantenha e envie apenas os exatos {requiredFilesTeste2.length} arquivos exigidos pelo ensaio.
+              </motion.div>
+            )}
           </AnimatePresence>
 
           {/* File List */}
@@ -180,15 +242,24 @@ const UploadScreen = ({ sessionData, onNext, onBack }) => {
           </div>
 
           {/* Actions */}
-          <div className="flex justify-between items-center pt-4">
+          <div className="flex justify-between items-center pt-4 border-t border-apple-gray">
             <Button variant="ghost" onClick={onBack} disabled={isProcessing}>Voltar</Button>
-            <Button 
-              disabled={files.length === 0 || isProcessing}
-              onClick={handleProcessClick}
-              className="px-12"
-            >
-              {isProcessing ? "Verificando..." : `Processar ${files.length > 0 ? `(${files.length})` : ''}`}
-            </Button>
+            <div className="flex items-center space-x-4">
+              {isTeste2 && missingFiles.length > 0 && (
+                <span className="text-xs text-red-500 font-medium">Anexe os arquivos obrigatórios</span>
+              )}
+              {isTeste2 && missingFiles.length === 0 && hasExtraFiles && (
+                <span className="text-xs text-red-500 font-medium">Remova os arquivos extras</span>
+              )}
+              <Button 
+                variant="blue"
+                disabled={!canProcess || isProcessing}
+                onClick={handleProcessClick}
+                className="px-12"
+              >
+                {isProcessing ? "Verificando..." : `Processar ${files.length > 0 ? `(${files.length})` : ''}`}
+              </Button>
+            </div>
           </div>
         </div>
       </Card>
