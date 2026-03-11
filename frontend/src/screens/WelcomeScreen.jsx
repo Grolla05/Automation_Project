@@ -58,11 +58,11 @@ const WelcomeScreen = ({ onNext, userData }) => {
               className="w-full h-full object-cover rounded-full relative z-10"
             />
           ) : (
-            <img 
+            /*<img 
               src="/Logo_TUV.jpg" 
               alt="TÜV Rheinland Logo" 
               className="w-full h-auto object-contain relative z-10"
-            />
+            />*/
           )}
         </motion.div>
 
