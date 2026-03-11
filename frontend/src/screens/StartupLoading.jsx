@@ -48,8 +48,8 @@ const StartupLoading = ({ onFinish }) => {
           className="relative z-10 w-[50vw] h-[50vw] max-w-[18rem] md:w-72 md:h-72 flex items-center justify-center p-8 md:p-16 bg-white rounded-full shadow-2xl overflow-hidden border border-apple-gray"
         >
           <img 
-            src="/Logo_TUV.jpg" 
-            alt="TÜV Rheinland Logo" 
+            src="/Logo.jpg" 
+            alt="Logo" 
             className="w-full h-auto object-contain"
           />
         </motion.div>
@@ -65,7 +65,7 @@ const StartupLoading = ({ onFinish }) => {
             transition={{ delay: 0.8 }}
             className="text-apple-blue font-bold text-xl md:text-3xl tracking-tight text-center"
           >
-            Precisely Right.
+            XXXXXX.
           </motion.p>
           
           <motion.div

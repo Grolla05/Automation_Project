@@ -58,11 +58,11 @@ const WelcomeScreen = ({ onNext, userData }) => {
               className="w-full h-full object-cover rounded-full relative z-10"
             />
           ) : (
-            /*<img 
-              src="/Logo_TUV.jpg" 
-              alt="TÜV Rheinland Logo" 
+            <img 
+              src="/Logo.jpg" 
+              alt="Logo" 
               className="w-full h-auto object-contain relative z-10"
-            />*/
+            />
           )}
         </motion.div>
 
@@ -72,9 +72,9 @@ const WelcomeScreen = ({ onNext, userData }) => {
           transition={{ delay: 0.4, duration: 0.6 }}
         >
           <h1 className="text-4xl font-bold text-apple-text tracking-tight mb-2 text-center">
-            Olá, {userData?.name || "Engenheiro"}
+            Olá, {userData?.name || "Técnico"}
           </h1>
-          <p className="text-apple-secondary text-lg text-center">Selecione o setor para visualizar os ensaios disponíveis.</p>
+          <p className="text-apple-secondary text-lg text-center">Selecione o tópico para visualizar os ensaios disponíveis.</p>
         </motion.div>
       </div>
 
@@ -82,14 +82,14 @@ const WelcomeScreen = ({ onNext, userData }) => {
         <div className="space-y-8">
           {/* Sector Selection */}
           <div className="space-y-3">
-            <label className="text-sm font-semibold text-apple-secondary uppercase tracking-wider">Setor</label>
+            <label className="text-sm font-semibold text-apple-secondary uppercase tracking-wider">tópico</label>
             <div className="relative">
               <select 
                 value={selectedSector}
                 onChange={handleSectorChange}
                 className="peer w-full appearance-none bg-apple-bg/50 border-2 border-transparent hover:border-apple-gray rounded-apple px-4 py-3.5 text-apple-text font-medium focus:bg-transparent focus:text-apple-blue focus:outline-none focus:border-apple-blue focus:ring-4 focus:ring-apple-blue/30 transition-all duration-300 cursor-pointer shadow-sm"
               >
-                <option value="" disabled>Selecione o setor...</option>
+                <option value="" disabled>Selecione o tópico...</option>
                 {Object.keys(SECTOR_DATA).map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-apple-secondary peer-focus:text-apple-blue transition-colors duration-300 pointer-events-none" size={20} />
@@ -102,16 +102,16 @@ const WelcomeScreen = ({ onNext, userData }) => {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="space-y-3 overflow-hidden"
+                className="space-y-3 overflow-hidden p-1"
               >
-                <label className="text-sm font-semibold text-apple-secondary uppercase tracking-wider">Tipo de Ensaio</label>
+                <label className="text-sm font-semibold text-apple-secondary uppercase tracking-wider">subtópico</label>
                 <div className="relative">
                   <select 
                     value={selectedTestType}
                     onChange={handleTestTypeChange}
                     className="peer w-full appearance-none bg-apple-bg/50 border-2 border-transparent hover:border-apple-gray rounded-apple px-4 py-3.5 text-apple-text font-medium focus:bg-transparent focus:text-apple-blue focus:outline-none focus:border-apple-blue focus:ring-4 focus:ring-apple-blue/30 transition-all duration-300 cursor-pointer shadow-sm"
                   >
-                    <option value="" disabled>Selecione o tipo de ensaio...</option>
+                    <option value="" disabled>Selecione o subtópico...</option>
                     {availableTestTypes.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                   <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-apple-secondary peer-focus:text-apple-blue transition-colors duration-300 pointer-events-none" size={20} />
@@ -128,10 +128,10 @@ const WelcomeScreen = ({ onNext, userData }) => {
                 exit={{ opacity: 0, height: 0 }}
                 className="space-y-3 overflow-hidden mt-4"
               >
-                <label className="text-sm font-semibold text-apple-secondary uppercase tracking-wider">
-                  Itens e Ensaios para {selectedTestType}
+                <label className="text-sm font-semibold text-apple-secondary uppercase tracking-wider px-1">
+                  Itens para {selectedTestType}
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-1">
                   {availableTests.map(test => {
                     const isDisabled = !["TESTE", "TESTE1", "TESTE2"].includes(test); // Demo restriction
                     return (
