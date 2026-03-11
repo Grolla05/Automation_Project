@@ -11,7 +11,7 @@ import { Settings, CheckCircle } from 'lucide-react';
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState('STARTUP');
-  const [userData, setUserData] = useState({ name: "Engenheiro" });
+  const [userData, setUserData] = useState({ name: "Técnico" });
   const [sessionData, setSessionData] = useState({ sector: '', tests: [], files: [] });
   const [reportPath, setReportPath] = useState(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
