@@ -72,12 +72,17 @@ class DocumentService:
                 text_ext = arquivo.get("text", "")
                 caminho = arquivo.get("path", None)
                 
-                # Gera as Tags COM SUFIXO e injeta no dicionário gigante
-                tags_texto.update(get_text_tags(nome_arq, text_ext, normalized_layout, sufixo=sufixo))
-                
-                # Para manter compatibilidade retroativa com os outros templates de uma imagem apenas:
-                if idx == 0:
-                    tags_texto.update(get_text_tags(nome_arq, text_ext, normalized_layout, sufixo=""))
+                # 1. Checa se o conteúdo já é um Dicionário de Tags pré-processado (Exceção incrível para Pandas/Extratores)
+                if isinstance(text_ext, dict):
+                    tags_texto.update(text_ext)
+                else:
+                    # 2. Fluxo Normal: OCR bruto passa pelas regras Regex do sistema
+                    # Gera as Tags COM SUFIXO e injeta no dicionário gigante
+                    tags_texto.update(get_text_tags(nome_arq, text_ext, normalized_layout, sufixo=sufixo))
+                    
+                    # Para manter compatibilidade retroativa com os outros templates de uma imagem apenas:
+                    if idx == 0:
+                        tags_texto.update(get_text_tags(nome_arq, text_ext, normalized_layout, sufixo=""))
                     
                 # E associa a imagem física àquela tag pra hora da injeção
                 for timg in get_image_tags(sufixo=sufixo):

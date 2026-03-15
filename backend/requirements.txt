@@ -7,11 +7,14 @@ pywebview==5.0.5
 
 # Processamento de Imagem e OCR
 pytesseract==0.3.13
-pillow==10.2.0
+pillow==11.0.0
 pdf2image==1.17.0
 
 # Manipulação de Documentos
 python-docx==1.1.0
+pandas==2.2.1
+openpyxl==3.1.2
+xlrd==2.0.1
 
 # Utilidades
 python-dotenv==1.0.1

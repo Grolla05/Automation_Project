@@ -58,11 +58,11 @@ const WelcomeScreen = ({ onNext, userData }) => {
               className="w-full h-full object-cover rounded-full relative z-10"
             />
           ) : (
-            /*<img 
+            <img 
               src="/Logo_TUV.jpg" 
               alt="TÜV Rheinland Logo" 
               className="w-full h-auto object-contain relative z-10"
-            />*/
+            />
           )}
         </motion.div>
 
@@ -148,10 +148,10 @@ const WelcomeScreen = ({ onNext, userData }) => {
                           flex items-center justify-between px-5 py-3.5 rounded-xl border-2 transition-colors duration-300 relative overflow-hidden group
                           ${isDisabled 
                             ? "opacity-40 cursor-not-allowed border-apple-gray bg-apple-gray/10 text-apple-secondary grayscale" 
-                            : "cursor-pointer bg-white"}
+                            : "cursor-pointer"}
                           ${!isDisabled && selectedTests.includes(test) 
-                            ? "border-apple-blue bg-apple-blue/5 text-apple-blue shadow-[0_8px_16px_rgba(0,113,227,0.12)]" 
-                            : !isDisabled ? "border-transparent bg-apple-bg/60 hover:border-apple-gray hover:bg-white hover:shadow-sm text-apple-text" : ""}
+                            ? "border-apple-blue bg-apple-blue/5 dark:bg-apple-blue/20 text-apple-blue shadow-[0_8px_16px_rgba(0,113,227,0.12)]" 
+                            : !isDisabled ? "border-transparent bg-apple-bg hover:border-apple-gray hover:bg-apple-white hover:shadow-sm text-apple-text" : ""}
                         `}
                       >
                         {/* Selected background glow */}

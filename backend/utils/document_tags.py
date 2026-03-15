@@ -122,7 +122,7 @@ def get_text_tags(nome_arquivo, texto_extraido, layout_name=None, sufixo=""):
     normalized_name = str(layout_name).upper().replace('_LAYOUT', '') if layout_name else ""
 
     # 2. Despachante de Regra por Layout
-    if normalized_name in ['TESTE1', 'TESTE2']:
+    if 'TESTE1' in normalized_name or 'TESTE2' in normalized_name:
         # Testes 1 e 2 / Analisador de Espectro necessitam das tags extraídas avançadas.
         advanced_tags = extract_advanced_metrics(texto_extraido)
         

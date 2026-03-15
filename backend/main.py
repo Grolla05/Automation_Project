@@ -11,6 +11,7 @@ from utils.logger_config import setup_logger
 from utils.cleanup import clean_temp_directories
 from services.ocr_service import OCRService
 from services.document_service import DocumentService
+from services.excel_service import ExcelService
 from werkzeug.utils import secure_filename
 
 # Configuração inicial de Logs e Pastas
@@ -36,6 +37,7 @@ init_project()
 # Instancia os serviços
 ocr_service = OCRService()
 doc_service = DocumentService()
+excel_service = ExcelService()
 
 # --- API FLASK ---
 
@@ -111,13 +113,39 @@ def process_documents():
 
         # Execução do OCR informando o layout para cortes inteligentes
         normalized_layout = layout_filename.replace('.docx', '')
-        ocr_results = ocr_service.process_batch(file_paths, layout_name=normalized_layout)
         
-        # Preparando dados para injeção no Word
+        # Filtro Inteligente de Arquivos: Separa Imagens/PDF de Excel
+        ocr_paths = []
+        excel_paths = []
+        
+        for p in file_paths:
+            ext = p.split('.')[-1].lower()
+            if ext in ['xlsx', 'xls']:
+                excel_paths.append(p)
+            else:
+                ocr_paths.append(p)
+                
+        # Dicionário Geral que armazenará todas as respostas extraídas de todos os arquivos
+        extracted_data_results = {}
+        
+        # 1. OCR em Imagens / PDFs
+        if len(ocr_paths) > 0:
+            logger.info(f"[{request_id}] Iniciando processamento OCR para {len(ocr_paths)} arquivos...")
+            ocr_results = ocr_service.process_batch(ocr_paths, layout_name=normalized_layout)
+            extracted_data_results.update(ocr_results)
+            
+        # 2. Extração de Dados do Excel
+        if len(excel_paths) > 0:
+            logger.info(f"[{request_id}] Iniciando processamento Excel para {len(excel_paths)} arquivos...")
+            excel_results = excel_service.process_batch(excel_paths, layout_name=normalized_layout)
+            extracted_data_results.update(excel_results)
+        
+        # Preparando dados unificados para injeção no Word via Template
         file_data_list = []
         for file_path in file_paths:
             name = os.path.basename(file_path)
-            text = ocr_results.get(name, "")
+            # O get é importante para capturar textos de arquivos processados, ou strings vazias
+            text = extracted_data_results.get(name, "")
             file_data_list.append({
                 "filename": name,
                 "text": text,
