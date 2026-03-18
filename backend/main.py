@@ -10,6 +10,7 @@ from flask_cors import CORS
 from utils.logger_config import setup_logger
 from utils.cleanup import clean_temp_directories
 from services.ocr_service import OCRService
+from services.pdfExtract_service import PDFExtractService
 from services.document_service import DocumentService
 from services.excel_service import ExcelService
 from werkzeug.utils import secure_filename
@@ -36,6 +37,7 @@ init_project()
 
 # Instancia os serviços
 ocr_service = OCRService()
+pdf_extract_service = PDFExtractService()
 doc_service = DocumentService()
 excel_service = ExcelService()
 
@@ -111,28 +113,58 @@ def process_documents():
                 "error": "layout de relatório não registrado"
             }), 400
 
-        # Execução do OCR informando o layout para cortes inteligentes
-        normalized_layout = layout_filename.replace('.docx', '')
-        
         # Filtro Inteligente de Arquivos: Separa Imagens/PDF de Excel
+        # REGRA: OCR apenas para o arquivo de capa (marcado pelo frontend via 'ocr_target')
+        ocr_target = request.form.get('ocr_target')
         ocr_paths = []
         excel_paths = []
         
         for p in file_paths:
+            filename = os.path.basename(p)
             ext = p.split('.')[-1].lower()
+            
+            # 1. Arquivos Excel vão para extração de dados
             if ext in ['xlsx', 'xls']:
                 excel_paths.append(p)
-            else:
+            
+            # 2. Somente o arquivo de capa (especificado no ocr_target) vai para OCR
+            elif ocr_target and filename == secure_filename(ocr_target):
                 ocr_paths.append(p)
+                logger.info(f"[{request_id}] Arquivo identificado como alvo de OCR: {filename}")
+            
+            # Se não for excel nem capa, o arquivo é ignorado no OCR (ex: fotos de teste)
+            else:
+                logger.info(f"[{request_id}] Arquivo ignorado no OCR (não é alvo): {filename}")
+
+        # Execução do OCR informando o layout para cortes inteligentes
+        normalized_layout = layout_filename.replace('.docx', '')
                 
         # Dicionário Geral que armazenará todas as respostas extraídas de todos os arquivos
         extracted_data_results = {}
         
-        # 1. OCR em Imagens / PDFs
+        # 1. Extração da Capa (Inteligência de Chaveamento: Digital vs OCR)
         if len(ocr_paths) > 0:
-            logger.info(f"[{request_id}] Iniciando processamento OCR para {len(ocr_paths)} arquivos...")
-            ocr_results = ocr_service.process_batch(ocr_paths, layout_name=normalized_layout)
-            extracted_data_results.update(ocr_results)
+            for p in ocr_paths:
+                filename = os.path.basename(p)
+                ext = p.split('.')[-1].lower()
+                success_digital = False
+                
+                # Tenta extração digital se for PDF
+                if ext == 'pdf':
+                    logger.info(f"[{request_id}] Iniciando tentativa de extração DIGITAL para: {filename}")
+                    digital_results = pdf_extract_service.extract_data(p)
+                    
+                    # Verifica se a extração digital obteve campos válidos (além do raw_text e erro)
+                    if "error" not in digital_results and any(v != "Não encontrado" for k, v in digital_results.items() if k != "full_text_raw"):
+                        extracted_data_results[filename] = digital_results
+                        success_digital = True
+                        logger.info(f"[{request_id}] Sucesso na extração DIGITAL para: {filename}")
+                
+                # Se não for PDF ou se a extração digital falhar/não encontrar campos
+                if not success_digital:
+                    logger.info(f"[{request_id}] Iniciando processamento OCR para: {filename} (Digital falhou ou não aplicável)")
+                    ocr_results = ocr_service.process_batch([p], layout_name=normalized_layout)
+                    extracted_data_results.update(ocr_results)
             
         # 2. Extração de Dados do Excel
         if len(excel_paths) > 0:

@@ -4,18 +4,34 @@ Este é o frontend da aplicação de automação de laudos, desenvolvido com **R
 
 ---
 
+## 🚀 Stack Tecnológica
+
+- **React 18 + TypeScript**: Base da aplicação.
+- **TanStack React Query (v5)**: Gerenciamento de estado assíncrono, cache e sincronização de dados.
+- **Axios + Axios-Retry**: Cliente HTTP com interceptores e política de retentativa automática (3x) para lidar com falhas de conexão no backend (Porta 5000).
+- **Tailwind CSS**: Estilização moderna e utilitária.
+- **Framer Motion**: Micro-animações e transições de tela.
+- **Lucide React**: Biblioteca de ícones minimalistas.
+
+---
+
 ## 🏗️ Arquitetura e Organização
 
-O frontend utiliza uma abordagem baseada em **Componentes Funcionais** e **Hooks**, com gerenciamento de estado local para o fluxo de telas. Além disso, as telas são divididas utilizando os princípios de Container / Apresentação (Layouts) para melhor escalabilidade visual.
+A aplicação segue uma estrutura modular para facilitar a manutenção e escalabilidade.
 
-### Estrutura de Pastas
+### Estrutura de Pastas e Arquivos Chave
 
-- `/src/components`: Componentes de UI reutilizáveis (Botões, Cards, modais de config) formados com Tailwind. Também abrigam componentes complexos de layout (ex. `UploadLayout.jsx`).
-- `/src/screens`: Telas principais e containers lógicos que compõem o fluxo da aplicação.
-- `/src/services`: Camada de comunicação com o backend (API HTTP Bridge).
-- `/src/hooks`: Funções Hooks de UI isoladas e reutilizáveis (ex: gerência de modo Noturno).
-- `/src/assets`: Recursos estáticos gráficos como ícones globais e logos.
-- `/src/lib`: Funções utilitárias e constantes estáticas do programa (ex: `data.js` que gerencia a árvore de Setores (P5, P4, P3) e a estrutura Base64 nativa de diretórios atrelados dos relatórios).
+- `src/components/`: Componentes de UI reutilizáveis (Botões, Cards, Modais).
+- `src/components/ui/`: Componentes básicos do Design System.
+- `src/screens/`: Containers de tela que representam o fluxo do usuário (Welcome, Upload, Loading, Completion).
+- `src/services/`: Camada de comunicação de rede.
+- `src/services/axiosInstance.ts`: Configuração central do Axios com interceptores de erro e lógica de retry.
+- `src/services/api.ts`: Centralização das chamadas de API e Hooks do React Query (`useUserInfo`, `useSettings`, `useProcessImages`).
+- `src/hooks/`: Hooks customizados (ex: `useTheme` para Dark Mode).
+- `src/context/`: Contextos globais (ex: `SessionContext`).
+- `src/lib/`: Constantes, mapeamentos de layout e configurações locais em JSON.
+- `src/router/`: Configuração das rotas da aplicação.
+- `src/schemas/`: Validações de formulários e esquemas de dados (Zod/Upload).
 
 ---
 
@@ -30,30 +46,33 @@ O frontend utiliza uma abordagem baseada em **Componentes Funcionais** e **Hooks
 
 ## 🔄 Fluxo do Usuário (Screens)
 
-1. **WelcomeScreen**: Saudação e visualização modular hierárquica (Setor > Tipo de Ensaio > Sub-Ensaio). Define qual é o arquivo target que vai ser acionado pelo Backend (gerenciado via encoding na lib de dados).
-2. **UploadScreen / UploadLayout**: Um Wrapper lógico ultra-validado responsável por segregar as necessidades de arquivos Baseando-se no que foi escolhido no WelcomeScreen. Exige com precisão imagens (PNG/JPG), PDF e Planilhas (XLSX, XLS). **Regras ativas:** Se o ensaio for ASE, a tela proíbe PDF/Fotos e só aceita e libera o processamento com *1 Única Planilha*.
-3. **LoadingScreen**: Exibe de forma fluída e animada que o pacote está sendo escaneado ou parseado no Python e injetado nos layouts pré-definidos da nuvem.
-4. **CompletionScreen**: Finalização com botão interativo para abrir o laudo pronto (com tags preenchidas) nativamente no MS Word.
+1. **WelcomeScreen**: Seleção hierárquica (Setor > Tipo de Ensaio). Define o layout target.
+2. **UploadScreen**: Interface validada para upload de fotos, PDFs ou planilhas.
+   - *Regra Especial:* Ensaios ASE aceitam apenas 1 planilha.
+3. **LoadingScreen**: Feedback visual animado durante o processamento de OCR e geração de laudos no Python.
+4. **CompletionScreen**: Finalização com download/abertura direta do arquivo `.docx` gerado.
 
 ---
 
-## 🔌 Integração (API Bridge)
+## 🛠️ Configuração de Rede (Resiliência)
 
-O arquivo `src/services/api.js` atua como a interface de ponteamento entre Node.js/React e Python:
+Para lidar com a volatilidade do backend Python (Flask), a aplicação implementa:
 
-- **Requisições Fetch API**: Dispara requisições e capturas de layout via requisição multiparcelada (`FormData`) em HTTP tradicional na porta `5000`.
+- **Retry (3x)**: Tentativas automáticas em erros de rede ou status 5xx.
+- **Interceptors**: Logs centralizados de falhas de comunicação no console de desenvolvimento.
+- **Cache**: React Query mantém os dados de configurações e usuário em cache, reduzindo o tráfego de rede.
 
 ---
 
-## 🛠️ Comandos Disponíveis
+## 💻 Comandos Disponíveis
 
 ```bash
-# Instalar dependências da Interface Gráfica
+# Instalar dependências
 npm install
 
-# Rodar em modo desenvolvimento (Hot Reload + Preview Instantâneo)
+# Rodar em modo desenvolvimento (Hot Reload)
 npm run dev
 
-# Gerar build empacotada e minificada de produção para a raiz (/dist) do projeto Python consumir
+# Gerar build de produção para o diretório /dist
 npm run build
 ```

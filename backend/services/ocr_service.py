@@ -84,151 +84,126 @@ class OCRService:
                     }
         return None
 
-    def _save_debug_image(self, img, file_path, boxes=None):
+    def _save_debug_pdf_regions(self, page_img, file_path, page_num, anchor_boxes=None, value_boxes=None):
         """
-        Salva a imagem com retângulos e um grid de calibração para facilitar o ajuste.
+        Versão especializada do debug para as ROIs de PDF.
+        Desenha as áreas de busca de âncoras e as áreas de extração de valores detectadas.
         """
         try:
             os.makedirs('storage/debug', exist_ok=True)
-            base_name  = os.path.splitext(os.path.basename(file_path))[0]
-            timestamp  = datetime.now().strftime("%H%M%S")
-            debug_name = f"{base_name}_{timestamp}_debug.png"
+            base_name = os.path.splitext(os.path.basename(file_path))[0]
+            timestamp = datetime.now().strftime("%H%M%S")
+            debug_name = f"{base_name}_pg{page_num}_{timestamp}_debug.png"
             debug_path = os.path.join('storage/debug', debug_name)
 
-            debug_img = img.convert("RGB")
+            debug_img = page_img.convert("RGB")
             draw = ImageDraw.Draw(debug_img)
-            width, height = debug_img.size
 
-            if boxes:
-                COLOR_MAP = {
-                    "red":    (255,  40,  40),
-                    "blue":   ( 40, 120, 255),
-                    "green":  ( 40, 220,  80),
-                    "orange": (255, 160,   0),
-                }
-                for coords, color in boxes:
-                    rgb = COLOR_MAP.get(color, (255, 255, 0))
-                    draw.rectangle(coords, outline=rgb, width=6)
-                logger.info(f"[DEBUG] {len(boxes)} box(es) desenhada(s) com Grid de Calibração.")
+            # Desenha Caixas de Busca de Âncora (Azul - Estático/Busca)
+            if anchor_boxes:
+                for coords in anchor_boxes:
+                    draw.rectangle(coords, outline=(40, 120, 255), width=4) # Azul
+
+            # Desenha Caixas de Valores Extraídos (Verde - Dinâmico/Resultado)
+            if value_boxes:
+                for coords in value_boxes:
+                    draw.rectangle(coords, outline=(40, 220, 80), width=6) # Verde
 
             debug_img.save(debug_path)
-            logger.info(f"Imagem de diagnóstico salva (Com Grid 10%): {debug_path}")
+            logger.info(f"[DEBUG PDF] Mapeamento de regiões salvo: {debug_path}")
         except Exception as e:
-            logger.warning(f"Não foi possível salvar imagem de diagnóstico: {str(e)}")
-
-
-    def process_image(self, file_path, layout_name=None):
-        """
-        Processa um único arquivo de imagem aplicando CORTES (ROI) dinâmicos.
-        """
-        try:
-            with Image.open(file_path) as img:
-                custom_config = r'--oem 3 --psm 11'
-                
-                # Normalização para comparação robusta (ex: 'teste2_layout' -> 'TESTE2')
-                normalized_name = str(layout_name).upper().replace('_LAYOUT', '') if layout_name else ""
-                
-                # Filtro de Região de Interesse (ROI) para TESTE1 e TESTE2
-                if normalized_name in ['TESTE1', 'TESTE2']:
-                    width, height = img.size
-                    
-                    # --- PASSO 1: LOCALIZAÇÃO DE ÂNCORAS ---
-                    # Fazemos uma leitura rápida dos metadados da imagem
-                    ocr_data = pytesseract.image_to_data(img, lang='eng', output_type=Output.DICT)
-                    
-                    # Buscamos as âncoras primárias
-                    anchor_freq  = self._find_anchor(ocr_data, ["Frequency", "uency", "quency"])
-                    anchor_level = self._find_anchor(ocr_data, ["Level", "Bargraph", "Marker"])
-                    anchor_start = self._find_anchor(ocr_data, ["Start"])
-                    anchor_stop  = self._find_anchor(ocr_data, ["Stop"])
-
-                    # --- PASSO 2: DEFINIÇÃO DE ROIs RELATIVAS ---
-                    # Se não encontrar a âncora, usamos o fallback estático anterior
-
-                    # BOX FREQUENCY: À direita da palavra 'Frequency'
-                    if anchor_freq:
-                        x, y, w, h = anchor_freq['x'], anchor_freq['y'], anchor_freq['w'], anchor_freq['h']
-                        # Aumentado a altura em +35px (no fundo) e largura em +20px à direita
-                        freq_roi = (x + w, y - 60, x + w + 900, y + h + 60)
-                    else:
-                        freq_roi = (int(width * 0.35), int(height * 0.10), int(width * 0.88), int(height * 0.20))
-
-                    # BOX LEVELS: Abaixo da palavra 'Level' ou 'Bargraph'
-                    if anchor_level:
-                        x, y, w, h = anchor_level['x'], anchor_level['y'], anchor_level['w'], anchor_level['h']
-                        # '0' faz a box começar no limite da lateral esquerda
-                        levels_roi = (0, y + h + 5, x + 550, y + h + 250)
-                    else:
-                        levels_roi = (0, int(height * 0.15), int(width * 0.45), int(height * 0.38))
-
-                    # BOX START / STOP
-                    if anchor_start:
-                        x, y, w, h = anchor_start['x'], anchor_start['y'], anchor_start['w'], anchor_start['h']
-                        # 'y + h + 10' para igualar a altura com a box orange (Stop)
-                        start_roi = (x - 10, y - 5, x + w + 300, y + h + 10)
-                    else:
-                        start_roi = (int(width * 0), int(height * 0.75), int(width * 0.25), int(height * 0.96))
-
-                    if anchor_stop:
-                        x, y, w, h = anchor_stop['x'], anchor_stop['y'], anchor_stop['w'], anchor_stop['h']
-                        stop_roi = (x + w + 5, y - 5, x + w + 250, y + h + 10)
-                    else:
-                        stop_roi = (int(width * 0.45), int(height * 0.88), int(width * 0.95), int(height * 0.96))
-
-                    # Recorte das fatias
-                    box_levels = img.crop(levels_roi)
-                    box_freq   = img.crop(freq_roi)
-                    box_start  = img.crop(start_roi)
-                    box_stop   = img.crop(stop_roi)
-                    
-                    # OCR das Fatias
-                    text_levels = pytesseract.image_to_string(self._preprocess_image(box_levels), lang='por+eng', config=custom_config)
-                    text_freq   = pytesseract.image_to_string(self._preprocess_image(box_freq),   lang='por+eng', config=custom_config)
-                    text_start  = pytesseract.image_to_string(self._preprocess_image(box_start),  lang='por+eng', config=custom_config)
-                    text_stop   = pytesseract.image_to_string(self._preprocess_image(box_stop),   lang='por+eng', config=custom_config)
-                    
-                    logger.info("--- [ANCHOR TESTE2] OCR Baseado em Âncoras de Texto (Ajustado) ---")
-                    
-                    # Diagnóstico Visual
-                    self._save_debug_image(img, file_path, boxes=[
-                        (levels_roi[:2] + levels_roi[2:], "red"),
-                        (freq_roi[:2]   + freq_roi[2:],   "blue"),
-                        (start_roi[:2]  + start_roi[2:],  "green"),
-                        (stop_roi[:2]   + stop_roi[2:],   "orange"),
-                    ])
-                    
-                    return f"{text_freq.strip()}\n{text_levels.strip()}\n{text_start.strip()}\n{text_stop.strip()}"
-
-                # Fluxo Padrão (Lê a Imagem Inteira)
-                # Salva a imagem com uma box de contorno total como referência visual
-                width, height = img.size
-                self._save_debug_image(img, file_path, boxes=[([(0, 0), (width-1, height-1)], "blue")])
-                img = self._preprocess_image(img)
-                text = pytesseract.image_to_string(img, lang='por+eng', config=custom_config)
-                return text.strip()
-        except Exception as e:
-            logger.error(f"Erro ao ler imagem {file_path}: {str(e)}")
-            raise
+            logger.warning(f"Erro ao salvar debug do PDF: {str(e)}")
 
     def process_pdf(self, file_path, layout_name=None):
         """
         Converte cada página de um PDF em imagem e realiza o OCR.
+        Lógica Híbrida: Busca âncoras em áreas estáticas e extrai blocos dinamicamente.
         """
         try:
             logger.info(f"Convertendo PDF para imagens: {file_path}")
-            # Tenta converter usando o poppler_path configurado
             pages = convert_from_path(file_path, poppler_path=self.poppler_path)
             
             full_text = []
-            custom_config = r'--oem 3 --psm 11'
+            custom_config = r'--oem 3 --psm 6'
+            
+            # Definição das Regiões de Busca Estática para as Âncoras (%)
+            # "roi": [limite_esquerda, limite_superior, limite_direita, limite_inferior] em porcentagem relativa à página
+            # "patterns": Lista de palavras-chave para localizar a âncora (ex: "Data Recebimento" pode ser "Data" + "Recebimento" em OCR)
+            # O texto da âncora (ex: "Data de recebimento") é buscado nestas áreas fixas
+            ANCHOR_SEARCH_AREAS = {
+                "Data Recebimento":    {"roi": [0.05, 0.00, 0.35, 0.15], "patterns": ["Data", "recebimento"]},
+                "Liberada":            {"roi": [0.25, 0.00, 0.55, 0.15], "patterns": ["Liberada"]},
+                "AWB":                 {"roi": [0.05, 0.12, 0.45, 0.25], "patterns": ["AWB"]},
+                "Volume":              {"roi": [0.35, 0.12, 0.65, 0.25], "patterns": ["Volume"]},
+                "Etiqueta Embalagem":  {"roi": [0.05, 0.22, 0.55, 0.35], "patterns": ["Etiqueta", "embalagem"]},
+                "Etiqueta Amostras":   {"roi": [0.45, 0.22, 0.95, 0.35], "patterns": ["Etiqueta", "amostras"]},
+                "Ensaios Direto":      {"roi": [0.05, 0.32, 0.55, 0.45], "patterns": ["Ensaios", "direto"]},
+                "Ordem de Venda":      {"roi": [0.45, 0.32, 0.95, 0.45], "patterns": ["Ordem", "venda"]},
+                "Projeto":             {"roi": [0.05, 0.42, 0.95, 0.55], "patterns": ["Projeto"]},
+                "Data Aceite":         {"roi": [0.05, 0.52, 0.45, 0.65], "patterns": ["Data", "aceite"]},
+                "Solicitante":         {"roi": [0.35, 0.52, 0.95, 0.65], "patterns": ["Solicitante"]},
+                "Código SAP":          {"roi": [0.05, 0.62, 0.55, 0.75], "patterns": ["Código", "SAP"]},
+                "Fabricante":          {"roi": [0.45, 0.62, 0.95, 0.75], "patterns": ["Fabricante"]},
+                "Código SAP":          {"roi": [0.45, 0.62, 0.95, 0.75], "patterns": ["Código", "SAP"]},
+                "Teste":               {"roi": [0.05, 0.72, 0.95, 0.85], "patterns": ["Teste"]},
+            }
+
             for i, page in enumerate(pages):
-                logger.info(f"Processando página {i+1}/{len(pages)} do PDF...")
-                processed_page = self._preprocess_image(page)
-                text = pytesseract.image_to_string(processed_page, lang='por+eng', config=custom_config)
+                width, height = page.size
+                page_results = [f"--- [Página {i+1}] ---"]
                 
-                page_content = f"--- [Arquivo: {os.path.basename(file_path)} | Página {i+1}] ---\n"
-                page_content += text.strip()
-                full_text.append(page_content)
+                # Listas para coletar as coordenadas para o debug visual
+                anchor_debug_areas = []
+                value_debug_areas = []
+
+                if i == 0:
+                    logger.info(f"[OCR] Iniciando extração dinâmica por âncoras na página {i+1}")
+                    
+                    # 1. Obtém dados de OCR da página uma única vez para localizar as âncoras
+                    ocr_data = pytesseract.image_to_data(page, lang='por+eng', output_type=Output.DICT)
+                    
+                    for label, config in ANCHOR_SEARCH_AREAS.items():
+                        # REGISTRO PARA DEBUG: Área de busca estática (Azul)
+                        c = config["roi"]
+                        anchor_debug_areas.append((int(c[0]*width), int(c[1]*height), int(c[2]*width), int(c[3]*height)))
+
+                        # Busca a posição exata da âncora dentro da página
+                        anchor_pos = self._find_anchor(ocr_data, config["patterns"])
+                        
+                        if anchor_pos:
+                            x, y, w, h = anchor_pos['x'], anchor_pos['y'], anchor_pos['w'], anchor_pos['h']
+                            
+                            # Bloco dinâmico: Começa onde a âncora termina
+                            dynamic_value_roi = (x + w + 5, y - 10, x + w + 500, y + h + 10)
+                            
+                            # REGISTRO PARA DEBUG: Área de valor dinâmico (Verde)
+                            value_debug_areas.append(dynamic_value_roi)
+
+                            # Recorta e processa o valor
+                            value_img = page.crop(dynamic_value_roi)
+                            value_text = pytesseract.image_to_string(self._preprocess_image(value_img), lang='por+eng', config=r'--oem 3 --psm 7').strip()
+                            
+                            if value_text:
+                                page_results.append(f"{label}: {value_text}")
+                                logger.info(f"   > {label} extraído via âncora dinâmica.")
+                        else:
+                            # FALLBACK: Se não achar a âncora, tenta ler a ROI estática original como backup
+                            coords = config["roi"]
+                            left, top, right, bottom = int(coords[0]*width), int(coords[1]*height), int(coords[2]*width), int(coords[3]*height)
+                            fallback_img = page.crop((left, top, right, bottom))
+                            text = pytesseract.image_to_string(self._preprocess_image(fallback_img), lang='por+eng', config=custom_config).strip()
+                            if text:
+                                page_results.append(f"{label} (Estático): {text}")
+
+                    # SALVA O DEBUG VISUAL DO PDF (Mapeamento de Âncoras e Blocos)
+                    self._save_debug_pdf_regions(page, file_path, i+1, anchor_debug_areas, value_debug_areas)
+
+                # Texto total como segurança
+                full_page_text = pytesseract.image_to_string(self._preprocess_image(page), lang='por+eng', config=r'--oem 3 --psm 11')
+                page_results.append("\n[Texto Completo]:")
+                page_results.append(full_page_text.strip())
+                
+                full_text.append("\n".join(page_results))
                 
             return "\n\n".join(full_text)
         except Exception as e:
@@ -243,7 +218,11 @@ class OCRService:
             file_paths (list): Lista de strings com os caminhos completos.
             layout_name (str): Tipo do teste/layout para filtros visuais.
         """
-        logger.info(f"Iniciando processamento em lote de {len(file_paths)} arquivos.")
+        if not file_paths:
+            logger.info("Nenhum arquivo enviado para o lote de OCR.")
+            return {}
+
+        logger.info(f"Iniciando processamento em lote de {len(file_paths)} arquivos específicos para extração.")
         batch_results = {}
 
         for path in file_paths:
@@ -261,9 +240,7 @@ class OCRService:
                 ext = os.path.splitext(path)[1].lower()
                 
                 # Processamento baseado no tipo de arquivo
-                if ext in ['.png', '.jpg', '.jpeg', '.bmp', '.tiff']:
-                    extracted_text = self.process_image(path, layout_name)
-                elif ext == '.pdf':
+                if ext == '.pdf':
                     extracted_text = self.process_pdf(path, layout_name)
                 else:
                     logger.warning(f"Extensão {ext} não é suportada diretamente pelo OCRService.")

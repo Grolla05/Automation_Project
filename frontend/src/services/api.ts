@@ -1,59 +1,87 @@
 /**
- * Service to interact with Flask Backend or PyWebView.
+ * Service to interact with Flask Backend or PyWebView using Axios and React Query.
  */
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import axiosInstance from "./axiosInstance";
 import { LAYOUT_MAPPING } from "../lib/data";
+import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-/** Dados retornados por api.getUserInfo() */
 export interface UserInfo {
   name: string;
   picture?: string;
 }
 
-/** Configurações da aplicação */
 export interface AppSettings {
   theme?: "light" | "dark";
   [key: string]: unknown;
 }
 
-/** Resultado de api.processImages() */
 export interface ProcessResult {
   success: boolean;
   path: string;
 }
 
-/** Resultado de api.saveSettings() */
 export interface SaveSettingsResult {
   success: boolean;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const BASE_URL = "http://localhost:5000/api";
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
 const isWebView = (): boolean => window.pywebview !== undefined;
 
-// ─── API Object ───────────────────────────────────────────────────────────────
+// ─── API Core Functions (Axios) ───────────────────────────────────────────────
 
-export const api = {
-  /** Busca informações do usuário via PyWebView ou REST */
+const apiCore = {
   getUserInfo: async (): Promise<UserInfo> => {
     if (isWebView() && window.pywebview!.api?.getUserInfo) {
       return await window.pywebview!.api.getUserInfo!();
     }
-
     try {
-      const response = await fetch(`${BASE_URL}/user/info`);
-      if (!response.ok) throw new Error("Erro ao buscar info do usuário");
-      return (await response.json()) as UserInfo;
-    } catch {
-      console.warn("Backend Flask não disponível, usando mock.");
+      const { data } = await axiosInstance.get<UserInfo>("/user/info");
+      return data;
+    } catch (error) {
+      console.warn("Backend Flask não disponível, usando mock.", error);
       return { name: "Engenheiro Local" };
     }
   },
 
-  /** Processa imagens via OCR e gera documento Word */
+  getSettings: async (): Promise<AppSettings> => {
+    if (isWebView() && window.pywebview!.api?.getSettings) {
+      return await window.pywebview!.api.getSettings!();
+    }
+    const { data } = await axiosInstance.get<AppSettings>("/settings");
+    return data;
+  },
+
+  saveSettings: async (settings: AppSettings): Promise<SaveSettingsResult> => {
+    if (isWebView() && window.pywebview!.api?.saveSettings) {
+      const res = await window.pywebview!.api.saveSettings!(settings);
+      return { success: res.success };
+    }
+    const { data } = await axiosInstance.post<SaveSettingsResult>("/settings", settings);
+    return data;
+  },
+
+  checkLayout: async (tests: string[]): Promise<boolean> => {
+    const mainTest = tests[0] ?? "Padrao";
+    const layoutId = LAYOUT_MAPPING[mainTest] ?? btoa(`${mainTest}.docx`);
+try {
+      const { data } = await axiosInstance.post<{ success?: boolean; error?: string }>("/check_layout", {
+        tests,
+        layout_id: layoutId,
+      });
+
+      if (data.error) throw new Error(data.error);
+      return data.success ?? false;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao validar layout";
+      toast.error(message);
+      throw error;
+    }
+  },
+
   processImages: async (
     sector: string,
     tests: string[],
@@ -66,120 +94,96 @@ export const api = {
     const mainTest = tests[0] ?? "Padrao";
     const layoutId = LAYOUT_MAPPING[mainTest] ?? btoa(`${mainTest}.docx`);
 
-    console.log(
-      `[API processImages] Ensaio principal detectado: "${mainTest}"`
-    );
-    console.log(
-      `[API processImages] Mapping para Layout ID (Base64): "${layoutId}"`
-    );
-
     formData.append("layout_id", layoutId);
-    files.forEach((file) => formData.append("files", file));
-
-    try {
-      const response = await fetch(`${BASE_URL}/process`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = (await response.json()) as { error?: string };
-        throw new Error(errorData.error ?? "Erro no processamento do servidor");
+    
+    files.forEach((file) => {
+      formData.append("files", file);
+      if (file.type === "application/pdf" && file.name.toLowerCase().includes("capa")) {
+        formData.append("ocr_target", file.name);
       }
-
-      const result = (await response.json()) as {
-        success: boolean;
-        report_path: string;
-      };
-
-      return {
-        success: result.success,
-        path: result.report_path,
-      };
-    } catch (err) {
-      console.error("Erro na comunicação com o backend:", err);
-      throw err;
-    }
-  },
-
-  /** Valida se o layout existe no backend antes do upload */
-  checkLayout: async (tests: string[]): Promise<boolean> => {
-    const mainTest = tests[0] ?? "Padrao";
-    const layoutId = LAYOUT_MAPPING[mainTest] ?? btoa(`${mainTest}.docx`);
-
-    console.log(`[API checkLayout] Validando Ensaio: "${mainTest}"`);
-    console.log(
-      `[API checkLayout] Enviando Layout ID (Base64) para o Backend: "${layoutId}"`
-    );
-
-    const response = await fetch(`${BASE_URL}/check_layout`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tests, layout_id: layoutId }),
     });
 
-    const result = (await response.json()) as {
-      success?: boolean;
-      error?: string;
+    const promise = axiosInstance.post<{
+      success: boolean;
+      report_path: string;
+    }>("/process", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    toast.promise(promise, {
+      loading: 'Processando documentos e extraindo dados...',
+      success: (response) => {
+        return 'Processamento concluído com sucesso!';
+      },
+      error: (err) => {
+        return err.response?.data?.error || 'Erro ao processar arquivos.';
+      },
+    });
+
+    const { data } = await promise;
+
+    return {
+      success: data.success,
+      path: data.report_path,
     };
-
-    if (!response.ok) {
-      throw new Error(
-        result.error ?? "não há layout cadastrado para este Ensaio"
-      );
-    }
-
-    return result.success ?? false;
   },
 
-  /** Faz download / abre o arquivo gerado */
   downloadReport: async (filename: string): Promise<void> => {
     if (!filename) return;
 
-    if (isWebView() && window.pywebview!.api?.downloadReport) {
-      const result = await window.pywebview!.api.downloadReport!(filename);
-      if (result.success) {
-        console.log("Arquivo aberto nativamente pelo SO.");
-        return;
-      } else {
-        console.error("Erro ao abrir nativamente:", result.error);
+    try {
+      if (isWebView() && window.pywebview!.api?.downloadReport) {
+        const result = await window.pywebview!.api.downloadReport!(filename);
+        if (result.success) {
+          toast.success('Download concluído!');
+          return;
+        }
       }
-    }
 
-    const downloadUrl = `${BASE_URL}/download/${filename}`;
-    window.open(downloadUrl, "_blank");
-    console.log("Iniciando download via browser de:", downloadUrl);
-  },
-
-  /** Carrega as configurações do usuário */
-  getSettings: async (): Promise<AppSettings> => {
-    if (isWebView() && window.pywebview!.api?.getSettings) {
-      return await window.pywebview!.api.getSettings!();
-    }
-    try {
-      const response = await fetch(`${BASE_URL}/settings`);
-      return (await response.json()) as AppSettings;
-    } catch {
-      return { theme: "light" };
-    }
-  },
-
-  /** Salva as configurações do usuário */
-  saveSettings: async (settings: AppSettings): Promise<SaveSettingsResult> => {
-    if (isWebView() && window.pywebview!.api?.saveSettings) {
-      const res = await window.pywebview!.api.saveSettings!(settings);
-      return { success: res.success };
-    }
-    try {
-      const response = await fetch(`${BASE_URL}/settings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
-      });
-      return (await response.json()) as SaveSettingsResult;
-    } catch (err) {
-      console.error("Erro ao salvar settings:", err);
-      return { success: false };
+      const downloadUrl = `${axiosInstance.defaults.baseURL}/download/${filename}`;
+      window.open(downloadUrl, "_blank");
+      toast.success('Download iniciado!');
+    } catch (error) {
+      toast.error('Falha ao baixar o relatório.');
     }
   },
 };
+
+// ─── React Query Hooks (The Surgical Insertion) ────────────────────────────────
+
+export const useUserInfo = () => {
+  return useQuery({
+    queryKey: ["user-info"],
+    queryFn: apiCore.getUserInfo,
+    staleTime: 1000 * 60 * 5, // Cache por 5 min
+    retry: 3,
+  });
+};
+
+export const useSettings = () => {
+  return useQuery({
+    queryKey: ["app-settings"],
+    queryFn: apiCore.getSettings,
+    staleTime: Infinity, // Só recarrega se for invalidado (mutação)
+    retry: 3,
+  });
+};
+
+export const useSaveSettings = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: apiCore.saveSettings,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["app-settings"] });
+    },
+  });
+};
+
+export const useProcessImages = () => {
+  return useMutation({
+    mutationFn: (variables: { sector: string; tests: string[]; files: File[] }) =>
+      apiCore.processImages(variables.sector, variables.tests, variables.files),
+  });
+};
+
+export const api = apiCore; // Export core por retrocompatibilidade

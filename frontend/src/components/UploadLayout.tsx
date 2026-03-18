@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Upload, FileText, Image as ImageIcon, CheckCircle2, Circle, FileSpreadsheet } from 'lucide-react';
+import { X, Upload, FileText, Image as ImageIcon, CheckCircle2, Circle, FileSpreadsheet, AlertCircle } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { toast } from 'sonner';
 import Button from './ui/Button';
 import Card from './ui/Card';
 import { api } from '../services/api';
+import { createUploadSchema, type UploadFormData } from '../schemas/uploadSchema';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,12 +26,6 @@ interface UploadLayoutProps {
   onBack: () => void;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const REQUIRED_FILES_TESTE2 = ['image_test2.1', 'image_test2.2'];
-const VALID_IMAGE_TYPES = ['image/png', 'image/jpeg'];
-const VALID_TYPES = [...VALID_IMAGE_TYPES, 'application/pdf'];
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const isExcelFile = (file: File): boolean => {
@@ -35,17 +33,42 @@ const isExcelFile = (file: File): boolean => {
   return ext === 'xlsx' || ext === 'xls';
 };
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const VALID_IMAGE_TYPES = ['image/png', 'image/jpeg'];
+const VALID_TYPES = [...VALID_IMAGE_TYPES, 'application/pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'];
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
-  const [files, setFiles] = useState<File[]>([]);
   const [isHovering, setIsHovering] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const isTeste2 = sessionData?.tests?.includes('TESTE2');
   const isASE = sessionData?.testType === 'ASE';
+  const REQUIRED_FILES_TESTE2 = ['image_test2.1', 'image_test2.2'];
+
+  const schema = createUploadSchema({
+    tests: sessionData?.tests ?? [],
+    testType: sessionData?.testType,
+  });
+
+  const {
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+    trigger,
+  } = useForm<UploadFormData>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      files: [],
+    },
+  });
+
+  const files = watch('files');
 
   const hasFile = (reqName: string): boolean =>
     files.some((f) => {
@@ -58,62 +81,117 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
 
   const hasExcel = (): boolean => files.some(isExcelFile);
 
-  let missingFiles: string[] = [];
-  let hasExtraFiles = false;
-  let canProcess = false;
+  const areRequirementsMet = (): boolean => {
+    const hasPDF = files.some(f => f.type === 'application/pdf');
+    const hasImage = files.some(f => ['image/png', 'image/jpeg'].includes(f.type));
+    const hasExcelFile = files.some(isExcelFile);
 
-  if (isASE) {
-    if (!hasExcel()) missingFiles.push('Planilha Excel (.xlsx ou .xls)');
-    hasExtraFiles = files.length > 1;
-    canProcess = missingFiles.length === 0 && !hasExtraFiles;
-  } else if (isTeste2) {
-    missingFiles = REQUIRED_FILES_TESTE2.filter((req) => !hasFile(req));
-    hasExtraFiles = files.length > REQUIRED_FILES_TESTE2.length;
-    canProcess = missingFiles.length === 0 && !hasExtraFiles;
-  } else {
-    canProcess = files.length > 0;
-  }
+    // Requisitos básicos para todos
+    if (!hasPDF || !hasImage || !hasExcelFile) return false;
 
-  const handleProcessClick = async () => {
+    // Requisitos específicos para TESTE2
+    if (isTeste2) {
+      const allTeste2Met = REQUIRED_FILES_TESTE2.every(reqName => 
+        files.some(f => {
+          const nameWithoutExt = f.name.split('.').slice(0, -1).join('.');
+          return (
+            nameWithoutExt.toLowerCase() === reqName.toLowerCase() ||
+            f.name.toLowerCase().startsWith(reqName.toLowerCase())
+          );
+        })
+      );
+      if (!allTeste2Met) return false;
+    }
+
+    return true;
+  };
+
+  const validateRequirements = (files: File[]): string[] => {
+    const errors: string[] = [];
+    const hasPDF = files.some(f => f.type === 'application/pdf');
+    const hasImage = files.some(f => ['image/png', 'image/jpeg'].includes(f.type));
+    const hasExcelFile = files.some(isExcelFile);
+
+    if (!hasPDF) errors.push('A Capa de Liberação (.PDF) é obrigatória.');
+    if (!hasImage) errors.push('Pelo menos uma Imagem Análoga (.png/jpeg) é obrigatória.');
+    if (!hasExcelFile) errors.push('A Planilha de Registro (.xlsx/xls) é obrigatória.');
+
+    if (isTeste2) {
+      REQUIRED_FILES_TESTE2.forEach(reqName => {
+        const met = files.some(f => {
+          const nameWithoutExt = f.name.split('.').slice(0, -1).join('.');
+          return (
+            nameWithoutExt.toLowerCase() === reqName.toLowerCase() ||
+            f.name.toLowerCase().startsWith(reqName.toLowerCase())
+          );
+        });
+        if (!met) errors.push(`Arquivo obrigatório do TESTE2 ausente: ${reqName}`);
+      });
+    }
+
+    return errors;
+  };
+
+  const handleProcessClick = async (data: UploadFormData) => {
+    const reqErrors = validateRequirements(data.files);
+    if (reqErrors.length > 0) {
+      toast.error(reqErrors[0]);
+      setApiError(reqErrors[0]); // Mostra o primeiro erro de requisito
+      setTimeout(() => setApiError(null), 4000);
+      return;
+    }
+
     setIsProcessing(true);
-    setError(null);
+    setApiError(null);
     try {
       await api.checkLayout(sessionData?.tests ?? []);
-      onNext(files);
+      toast.success('Layout validado com sucesso!');
+      onNext(data.files);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'não há layout cadastrado para este Ensaio';
-      setError(message);
-      setTimeout(() => setError(null), 4000);
+      // O erro já é tratado com toast.error dentro do api.checkLayout
+      const message = err instanceof Error ? err.message : 'Layout não cadastrado';
+      setApiError(message);
+      setTimeout(() => setApiError(null), 4000);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const addFiles = (newFiles: File[]) => {
-    setError(null);
-    let hasInvalid = false;
-
-    const validFiles = newFiles.filter((file) => {
-      const isValid = VALID_TYPES.includes(file.type) || isExcelFile(file);
-      if (!isValid) hasInvalid = true;
-      return isValid;
+  const addFiles = async (newFiles: File[]) => {
+    setApiError(null);
+    
+    // Filtro rigoroso antes de atualizar o estado
+    const initialFilesCount = files.length;
+    const validFiles = newFiles.filter(file => {
+      const isSupported = VALID_TYPES.includes(file.type) || isExcelFile(file);
+      if (!isSupported) {
+        toast.error(`O arquivo ${file.name} não é suportado.`);
+        setApiError(`O arquivo ${file.name} não é suportado.`);
+        setTimeout(() => setApiError(null), 4000);
+        return false;
+      }
+      return true;
     });
 
-    if (hasInvalid) {
-      setError('Tipo de arquivo não suportado. Use apenas PNG, JPG, PDF ou Excel (.xlsx, .xls).');
-      setTimeout(() => setError(null), 4000);
+    if (validFiles.length > 0) {
+      const updatedFiles = [...files, ...validFiles];
+      setValue('files', updatedFiles);
+      await trigger('files');
+      toast.success(`${validFiles.length} arquivo(s) adicionado(s).`);
     }
-
-    setFiles((prev) => [...prev, ...validFiles]);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files ?? []);
     addFiles(selectedFiles);
+    // Limpar o input para permitir selecionar o mesmo arquivo novamente se for deletado
+    if (e.target) e.target.value = '';
   };
 
-  const removeFile = (index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+  const removeFile = async (index: number) => {
+    const updatedFiles = files.filter((_, i) => i !== index);
+    setValue('files', updatedFiles);
+    await trigger('files');
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -145,11 +223,11 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
     >
       <div className="text-center mb-10">
         <h1 className="text-4xl font-bold text-apple-text tracking-tight mb-2">Upload de Arquivos</h1>
-        <p className="text-apple-secondary text-lg">Selecione imagens (PNG/JPG) ou arquivos PDF.</p>
+        <p className="text-apple-secondary text-lg">Selecione os arquivos análogos ao ensaio.</p>
       </div>
 
       <Card className="max-w-3xl">
-        <div className="space-y-6">
+        <form onSubmit={handleSubmit(handleProcessClick)} className="space-y-6">
           {/* File Requirements for Special Tests */}
           {(isTeste2 || isASE) && (
             <motion.div
@@ -164,6 +242,45 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
                 Para processar este ensaio, você deve anexar obrigatoriamente os seguintes arquivos:
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Requisitos Fixos (Arquivos Obrigatórios para Todos) */}
+                <div className={twMerge(
+                  'flex items-center space-x-3 p-3 rounded-lg border transition-colors',
+                  files.some(f => f.type === 'application/pdf')
+                    ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-500/10 dark:border-green-500/20'
+                    : 'bg-white border-apple-gray text-apple-secondary dark:bg-apple-gray/20 dark:border-apple-gray/30'
+                )}>
+                  {files.some(f => f.type === 'application/pdf')
+                    ? <CheckCircle2 size={18} className="text-green-500" />
+                    : <Circle size={18} className="text-apple-secondary/50" />}
+                  <span className="font-medium text-sm">Capa de Liberação (.pdf)</span>
+                </div>
+
+                <div className={twMerge(
+                  'flex items-center space-x-3 p-3 rounded-lg border transition-colors',
+                  files.some(f => ['image/png', 'image/jpeg'].includes(f.type))
+                    ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-500/10 dark:border-green-500/20'
+                    : 'bg-white border-apple-gray text-apple-secondary dark:bg-apple-gray/20 dark:border-apple-gray/30'
+                )}>
+                  {files.some(f => ['image/png', 'image/jpeg'].includes(f.type))
+                    ? <CheckCircle2 size={18} className="text-green-500" />
+                    : <Circle size={18} className="text-apple-secondary/50" />}
+                  <span className="font-medium text-sm">Imagens Análogas (.png/jpeg)</span>
+                </div>
+
+                {/* Registro de Ensaio (Já existente no ASE, mas agora unificado) */}
+                <div className={twMerge(
+                  'flex items-center space-x-3 p-3 rounded-lg border transition-colors',
+                  hasExcel()
+                    ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-500/10 dark:border-green-500/20'
+                    : 'bg-white border-apple-gray text-apple-secondary dark:bg-apple-gray/20 dark:border-apple-gray/30'
+                )}>
+                  {hasExcel()
+                    ? <CheckCircle2 size={18} className="text-green-500" />
+                    : <Circle size={18} className="text-apple-secondary/50" />}
+                  <span className="font-medium text-sm">Registro de Ensaio (.xlsx/xls)</span>
+                </div>
+
+                {/* Requisitos Específicos Adicionais (Ex: TESTE2) */}
                 {isTeste2 && REQUIRED_FILES_TESTE2.map((reqName) => {
                   const isMet = hasFile(reqName);
                   return (
@@ -183,20 +300,6 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
                     </div>
                   );
                 })}
-
-                {isASE && (
-                  <div className={twMerge(
-                    'flex items-center space-x-3 p-3 rounded-lg border transition-colors',
-                    hasExcel()
-                      ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-500/10 dark:border-green-500/20'
-                      : 'bg-white border-apple-gray text-apple-secondary dark:bg-apple-gray/20 dark:border-apple-gray/30'
-                  )}>
-                    {hasExcel()
-                      ? <CheckCircle2 size={18} className="text-green-500" />
-                      : <Circle size={18} className="text-apple-secondary/50" />}
-                    <span className="font-medium text-sm">Planilha de Registro de Ensaio (.xlsx, .xls)</span>
-                  </div>
-                )}
               </div>
             </motion.div>
           )}
@@ -212,11 +315,11 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
               isHovering
                 ? 'border-apple-blue bg-apple-blue/5 scale-[1.01]'
                 : 'border-apple-gray bg-apple-bg hover:border-apple-secondary/50',
-              error ? 'border-red-500 bg-red-50 dark:bg-red-500/10' : ''
+              errors.files ? 'border-red-500 bg-red-50 dark:bg-red-500/10' : ''
             )}
           >
             <motion.div
-              animate={error ? { x: [-10, 10, -10, 10, 0] } : {}}
+              animate={errors.files ? { x: [-10, 10, -10, 10, 0] } : {}}
               transition={{ duration: 0.4 }}
               className="flex flex-col items-center"
             >
@@ -230,39 +333,55 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
               />
               <div className={twMerge(
                 'w-16 h-16 rounded-full shadow-apple flex items-center justify-center mb-4 transition-colors',
-                error ? 'bg-red-500 text-white' : 'bg-white dark:bg-apple-gray text-apple-blue'
+                errors.files ? 'bg-red-500 text-white' : 'bg-white dark:bg-apple-gray text-apple-blue'
               )}>
                 <Upload size={28} />
               </div>
-              <p className={twMerge('font-medium text-lg transition-colors', error ? 'text-red-500' : 'text-apple-text')}>
-                {error ? 'Arquivo inválido!' : 'Arraste arquivos aqui'}
+              <p className={twMerge('font-medium text-lg transition-colors', errors.files ? 'text-red-500' : 'text-apple-text')}>
+                {errors.files ? 'Arquivo inválido!' : 'Arraste arquivos aqui'}
               </p>
-              <p className={twMerge('text-sm mt-1 transition-colors', error ? 'text-red-400' : 'text-apple-secondary')}>
-                {error ? 'Use apenas Imagens, PDF ou Excel' : 'ou clique para navegar'}
+              <p className={twMerge('text-sm mt-1 transition-colors', errors.files ? 'text-red-400' : 'text-apple-secondary')}>
+                {errors.files ? 'Revise os requisitos de arquivo' : 'ou clique para navegar'}
               </p>
             </motion.div>
           </div>
 
           <AnimatePresence>
-            {error && (
+            {errors.files?.message && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="bg-red-500/10 border border-red-500/20 text-red-500 p-3 rounded-apple text-sm font-medium text-center"
+                className="bg-red-500/10 border border-red-500/20 text-red-500 p-3 rounded-apple text-sm font-medium flex items-center gap-2"
               >
-                {error}
+                <AlertCircle size={16} />
+                {errors.files.message}
               </motion.div>
             )}
-            {!error && hasExtraFiles && (
+            {/* Caso existam múltiplos erros de refinamento no Zod */}
+            {errors.files && !errors.files.message && Array.isArray(errors.files) && (
+               <div className="space-y-2">
+                 {errors.files.map((err: any, idx: number) => (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-red-500/10 border border-red-500/20 text-red-500 p-3 rounded-apple text-sm font-medium flex items-center gap-2"
+                    >
+                      <AlertCircle size={16} />
+                      {err.message}
+                    </motion.div>
+                 ))}
+               </div>
+            )}
+            {apiError && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 className="bg-red-500/10 border border-red-500/20 text-red-500 p-3 rounded-apple text-sm font-medium text-center"
               >
-                Você anexou arquivos extras. Por favor, mantenha e envie apenas os exatos{' '}
-                {isASE ? 1 : REQUIRED_FILES_TESTE2.length} arquivos exigidos pelo ensaio.
+                {apiError}
               </motion.div>
             )}
           </AnimatePresence>
@@ -298,6 +417,7 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
                     </div>
                   </div>
                   <button
+                    type="button"
                     onClick={(e) => { e.stopPropagation(); removeFile(index); }}
                     className="p-1 hover:bg-red-50 hover:text-red-500 rounded-full text-apple-secondary transition-colors"
                   >
@@ -310,25 +430,19 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
 
           {/* Actions */}
           <div className="flex justify-between items-center pt-4 border-t border-apple-gray">
-            <Button variant="ghost" onClick={onBack} disabled={isProcessing}>Voltar</Button>
+            <Button variant="ghost" type="button" onClick={onBack} disabled={isProcessing}>Voltar</Button>
             <div className="flex items-center space-x-4">
-              {(isTeste2 || isASE) && missingFiles.length > 0 && (
-                <span className="text-xs text-red-500 font-medium">Anexe os arquivos obrigatórios</span>
-              )}
-              {(isTeste2 || isASE) && missingFiles.length === 0 && hasExtraFiles && (
-                <span className="text-xs text-red-500 font-medium">Remova os arquivos extras</span>
-              )}
               <Button
                 variant="blue"
-                disabled={!canProcess || isProcessing}
-                onClick={handleProcessClick}
+                type="submit"
+                disabled={isProcessing || !!errors.files || files.length === 0 || !areRequirementsMet()}
                 className="px-12"
               >
                 {isProcessing ? 'Verificando...' : `Processar${files.length > 0 ? ` (${files.length})` : ''}`}
               </Button>
             </div>
           </div>
-        </div>
+        </form>
       </Card>
     </motion.div>
   );

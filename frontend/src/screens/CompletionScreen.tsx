@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Navigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { CheckCircle2, FileDown, RotateCcw } from 'lucide-react';
@@ -26,8 +27,15 @@ const CompletionScreen = () => {
 
   const handleDownload = async () => {
     setDownloading(true);
-    await api.downloadReport(reportPath);
-    setDownloading(false);
+    try {
+      await api.downloadReport(reportPath);
+      toast.success('Download iniciado!');
+    } catch (err) {
+      toast.error('Erro ao baixar o relatório.');
+      console.error(err);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const handleReset = () => {
