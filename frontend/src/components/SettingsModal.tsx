@@ -1,13 +1,21 @@
-import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sun, Moon, Monitor } from 'lucide-react';
+import { X, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 
-const SettingsModal = ({ isOpen, onClose }) => {
-  const { 
-    theme, toggleTheme, 
-    fontSize, cursorSize, 
-    dyslexicFont, updateSetting 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface SettingsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
+  const {
+    theme, toggleTheme,
+    fontSize, cursorSize,
+    dyslexicFont, updateSetting,
   } = useTheme();
 
   return (
@@ -48,13 +56,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 <label className="text-[10px] md:text-xs font-bold text-apple-secondary uppercase tracking-widest pl-1">
                   Aparência
                 </label>
-                
+
                 <div className="grid grid-cols-2 gap-3 md:gap-4">
                   <button
                     onClick={() => theme === 'dark' && toggleTheme()}
                     className={`flex flex-col items-center justify-center p-3 md:p-4 rounded-xl border-2 transition-all cursor-pointer ${
-                      theme === 'light' 
-                        ? 'border-apple-blue bg-apple-blue/5 text-apple-blue shadow-sm' 
+                      theme === 'light'
+                        ? 'border-apple-blue bg-apple-blue/5 text-apple-blue shadow-sm'
                         : 'border-apple-gray text-apple-secondary hover:border-apple-secondary/30'
                     }`}
                   >
@@ -65,8 +73,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
                   <button
                     onClick={() => theme === 'light' && toggleTheme()}
                     className={`flex flex-col items-center justify-center p-3 md:p-4 rounded-xl border-2 transition-all cursor-pointer ${
-                      theme === 'dark' 
-                        ? 'border-apple-blue bg-apple-blue/5 text-apple-blue shadow-sm' 
+                      theme === 'dark'
+                        ? 'border-apple-blue bg-apple-blue/5 text-apple-blue shadow-sm'
                         : 'border-apple-gray text-apple-secondary hover:border-apple-secondary/30'
                     }`}
                   >
@@ -86,13 +94,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-apple-text">Tamanho da Fonte</p>
                   <div className="flex bg-apple-bg rounded-lg p-1 border border-apple-gray">
-                    {['normal', 'large', 'extralarge'].map((size) => (
+                    {(['normal', 'large', 'extralarge'] as const).map((size) => (
                       <button
                         key={size}
                         onClick={() => updateSetting('fontSize', size)}
                         className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
-                          fontSize === size 
-                            ? 'bg-white shadow-sm text-apple-blue' 
+                          fontSize === size
+                            ? 'bg-white shadow-sm text-apple-blue'
                             : 'text-apple-secondary hover:text-apple-text'
                         }`}
                       >
@@ -106,13 +114,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-apple-text">Tamanho do Cursor</p>
                   <div className="flex bg-apple-bg rounded-lg p-1 border border-apple-gray">
-                    {['normal', 'large', 'extralarge'].map((size) => (
+                    {(['normal', 'large', 'extralarge'] as const).map((size) => (
                       <button
                         key={size}
                         onClick={() => updateSetting('cursorSize', size)}
                         className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
-                          cursorSize === size 
-                            ? 'bg-white shadow-sm text-apple-blue' 
+                          cursorSize === size
+                            ? 'bg-white shadow-sm text-apple-blue'
                             : 'text-apple-secondary hover:text-apple-text'
                         }`}
                       >

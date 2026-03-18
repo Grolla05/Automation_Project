@@ -1,12 +1,20 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 
-const StartupLoading = ({ onFinish }) => {
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface StartupLoadingProps {
+  /** Callback disparado após o tempo de splash screen */
+  onFinish: () => void;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+const StartupLoading = ({ onFinish }: StartupLoadingProps) => {
   useEffect(() => {
-    // Simulamos um tempo de carregamento inicial do "motor" da aplicação
     const timer = setTimeout(() => {
       onFinish();
-    }, 3000); // 3 segundos de loading suave
+    }, 3000);
 
     return () => clearTimeout(timer);
   }, [onFinish]);
@@ -21,41 +29,28 @@ const StartupLoading = ({ onFinish }) => {
       <div className="relative flex flex-col items-center">
         {/* Glow Effect / Brush */}
         <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.2, 0.4, 0.2],
-          }}
+          animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.4, 0.2] }}
           exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.3 } }}
-          transition={{
-            duration: 3,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
+          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
           className="absolute w-[80vw] h-[80vw] max-w-2xl max-h-2xl bg-apple-blue/30 blur-[60px] md:blur-[100px] rounded-full pointer-events-none"
         />
 
         {/* Logo Container with Pulse */}
         <motion.div
-          animate={{
-            scale: [0.95, 1.05, 0.95],
-          }}
+          animate={{ scale: [0.95, 1.05, 0.95] }}
           exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.3 } }}
-          transition={{
-            duration: 3,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
+          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
           className="relative z-10 w-[50vw] h-[50vw] max-w-[18rem] md:w-72 md:h-72 flex items-center justify-center p-8 md:p-16 bg-white rounded-full shadow-2xl overflow-hidden border border-apple-gray"
         >
-          <img 
-            src="/Logo_TUV.jpg" 
-            alt="TÜV Rheinland Logo" 
+          <img
+            src="/Logo_TUV.jpg"
+            alt="TÜV Rheinland Logo"
             className="w-full h-auto object-contain"
           />
         </motion.div>
 
         {/* Slogan and System status */}
-        <motion.div 
+        <motion.div
           exit={{ opacity: 0, y: 20 }}
           className="mt-8 md:mt-12 flex flex-col items-center space-y-4 md:space-y-6 px-4"
         >
@@ -67,7 +62,7 @@ const StartupLoading = ({ onFinish }) => {
           >
             Precisely Right.
           </motion.p>
-          
+
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}

@@ -1,4 +1,15 @@
-export const SECTOR_DATA = {
+/**
+ * Dados estáticos de setores, tipos de ensaio e ensaios disponíveis.
+ * A estrutura é: Setor → Tipo de Ensaio → lista de listas de Ensaios.
+ */
+
+/** Mapa de tipos de ensaio para grupos de ensaios */
+export type TestTypeMap = Record<string, string[][]>;
+
+/** Estrutura completa de setores */
+export type SectorData = Record<string, TestTypeMap>;
+
+export const SECTOR_DATA: SectorData = {
   P3: {
     EMC: [["ENSAIOS DE EMC"]],
     RF: [["Bluetooth Low Energy", "Wi-Fi 2.4Ghz", "Wi-Fi 5Ghz", "DFS/TPC"]],
@@ -19,7 +30,8 @@ export const SECTOR_DATA = {
   },
 };
 
-export const LAYOUT_MAPPING = {
+/** Mapeamento de nome de ensaio para Layout ID em Base64 */
+export const LAYOUT_MAPPING: Record<string, string> = {
   "Bluetooth Low Energy": btoa("P3/BLE_layout.docx"),
   "Wi-Fi 2.4Ghz": btoa("P3/Wi-Fi2.4_layout.docx"),
   "Wi-Fi 5Ghz": btoa("P3/Wi-Fi5_layout.docx"),
