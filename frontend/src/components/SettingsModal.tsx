@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sun, Moon } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../hooks/useTheme';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -13,11 +14,16 @@ interface SettingsModalProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
+  const { t, i18n } = useTranslation();
   const {
     theme, toggleTheme,
     fontSize, cursorSize,
     dyslexicFont, updateSetting,
   } = useTheme();
+
+  const changeLanguage = (lng: string) => {
+    i18n.changeLanguage(lng);
+  };
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -43,18 +49,18 @@ const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                   exit={{ scale: 0.9, opacity: 0, y: 20 }}
                   className="relative w-full max-w-sm md:max-w-md bg-apple-white rounded-[24px] shadow-2xl overflow-hidden border border-apple-gray mx-auto pointer-events-auto"
                 >
-                  <Dialog.Title className="sr-only">Configurações</Dialog.Title>
+                  <Dialog.Title className="sr-only">{t('settings.title')}</Dialog.Title>
                   <Dialog.Description className="sr-only">
-                    Altere o tema, tamanho da fonte e outras opções de acessibilidade.
+                    {t('settings.accessibility')}
                   </Dialog.Description>
 
                   {/* Header */}
                   <div className="flex items-center justify-between px-5 md:px-6 py-4 border-b border-apple-gray">
-                    <h2 className="text-lg md:text-xl font-bold text-apple-text tracking-tight">Configurações</h2>
+                    <h2 className="text-lg md:text-xl font-bold text-apple-text tracking-tight">{t('settings.title')}</h2>
                     <Dialog.Close asChild>
                       <button
                         className="p-1.5 md:p-2 hover:bg-apple-bg rounded-full transition-colors cursor-pointer"
-                        aria-label="Fechar configurações"
+                        aria-label={t('settings.close')}
                       >
                         <X size={20} className="text-apple-secondary" />
                       </button>
@@ -66,7 +72,7 @@ const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                     {/* Theme Section */}
                     <div className="space-y-3 md:space-y-4">
                       <label id="theme-label" className="text-[10px] md:text-xs font-bold text-apple-secondary uppercase tracking-widest pl-1">
-                        Aparência
+                        {t('settings.appearance')}
                       </label>
 
                       <div className="grid grid-cols-2 gap-3 md:gap-4" role="radiogroup" aria-labelledby="theme-label">
@@ -81,7 +87,7 @@ const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                           }`}
                         >
                           <Sun size={20} className="mb-2 md:w-6 md:h-6" />
-                          <span className="text-xs md:text-sm font-semibold">Claro</span>
+                          <span className="text-xs md:text-sm font-semibold">{t('settings.light')}</span>
                         </button>
 
                         <button
@@ -95,20 +101,52 @@ const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                           }`}
                         >
                           <Moon size={20} className="mb-2 md:w-6 md:h-6" />
-                          <span className="text-xs md:text-sm font-semibold">Escuro</span>
+                          <span className="text-xs md:text-sm font-semibold">{t('settings.dark')}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Language Section */}
+                    <div className="space-y-3 md:space-y-4">
+                      <label id="lang-label" className="text-[10px] md:text-xs font-bold text-apple-secondary uppercase tracking-widest pl-1">
+                        {t('settings.language')}
+                      </label>
+
+                      <div className="flex bg-apple-bg rounded-lg p-1 border border-apple-gray">
+                        <button
+                          onClick={() => changeLanguage('pt')}
+                          className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs md:text-sm font-medium rounded-md transition-all cursor-pointer ${
+                            i18n.language.startsWith('pt')
+                              ? 'bg-apple-white shadow-sm text-apple-blue border border-apple-gray/20'
+                              : 'text-apple-secondary hover:text-apple-text'
+                          }`}
+                        >
+                          <span className="text-lg">🇧🇷</span>
+                          {t('settings.portuguese')}
+                        </button>
+                        <button
+                          onClick={() => changeLanguage('en')}
+                          className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs md:text-sm font-medium rounded-md transition-all cursor-pointer ${
+                            i18n.language.startsWith('en')
+                              ? 'bg-apple-white shadow-sm text-apple-blue border border-apple-gray/20'
+                              : 'text-apple-secondary hover:text-apple-text'
+                          }`}
+                        >
+                          <span className="text-lg">🇺🇸</span>
+                          {t('settings.english')}
                         </button>
                       </div>
                     </div>
 
                     {/* Accessibility Section */}
-                    <div className="space-y-6 md:space-y-6">
+                    <div className="space-y-6 md:space-y-6 pt-2">
                       <label className="text-[10px] md:text-xs font-bold text-apple-secondary uppercase tracking-widest pl-1">
-                        Acessibilidade
+                        {t('settings.accessibility')}
                       </label>
 
                       {/* Font Size */}
                       <div className="space-y-2">
-                        <p id="font-size-label" className="text-sm font-medium text-apple-text">Tamanho da Fonte</p>
+                        <p id="font-size-label" className="text-sm font-medium text-apple-text">{t('settings.font_size')}</p>
                         <div className="flex bg-apple-bg rounded-lg p-1 border border-apple-gray" role="group" aria-labelledby="font-size-label">
                           {(['normal', 'large', 'extralarge'] as const).map((size) => (
                             <button
@@ -117,7 +155,7 @@ const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                               aria-pressed={fontSize === size}
                               className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
                                 fontSize === size
-                                  ? 'bg-white shadow-sm text-apple-blue'
+                                  ? 'bg-apple-white shadow-sm text-apple-blue'
                                   : 'text-apple-secondary hover:text-apple-text'
                               }`}
                             >
@@ -129,7 +167,7 @@ const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
 
                       {/* Cursor Size */}
                       <div className="space-y-2">
-                        <p id="cursor-size-label" className="text-sm font-medium text-apple-text">Tamanho do Cursor</p>
+                        <p id="cursor-size-label" className="text-sm font-medium text-apple-text">{t('settings.cursor_size')}</p>
                         <div className="flex bg-apple-bg rounded-lg p-1 border border-apple-gray" role="group" aria-labelledby="cursor-size-label">
                           {(['normal', 'large', 'extralarge'] as const).map((size) => (
                             <button
@@ -138,11 +176,11 @@ const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                               aria-pressed={cursorSize === size}
                               className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
                                 cursorSize === size
-                                  ? 'bg-white shadow-sm text-apple-blue'
+                                  ? 'bg-apple-white shadow-sm text-apple-blue'
                                   : 'text-apple-secondary hover:text-apple-text'
                               }`}
                             >
-                              {size === 'normal' ? 'Normal' : size === 'large' ? 'Grande' : 'Extra'}
+                              {size === 'normal' ? t('settings.normal') : size === 'large' ? t('settings.large') : t('settings.extra')}
                             </button>
                           ))}
                         </div>
@@ -151,8 +189,8 @@ const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                       {/* Dyslexia Font */}
                       <div className="flex items-center justify-between py-2">
                         <div>
-                          <p id="dyslexia-font-label" className="text-sm font-medium text-apple-text">Fonte para Dislexia</p>
-                          <p className="text-[10px] text-apple-secondary">Usa Lexend para melhor leitura</p>
+                          <p id="dyslexia-font-label" className="text-sm font-medium text-apple-text">{t('settings.dyslexia_font')}</p>
+                          <p className="text-[10px] text-apple-secondary">{t('settings.dyslexia_subtitle')}</p>
                         </div>
                         <button
                           role="switch"
@@ -164,7 +202,7 @@ const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                           }`}
                         >
                           <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            className={`inline-block h-4 w-4 transform rounded-full bg-apple-white transition-transform ${
                               dyslexicFont ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
@@ -188,5 +226,4 @@ const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
     </Dialog.Root>
   );
 };
-
 export default SettingsModal;

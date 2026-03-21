@@ -1,0 +1,95 @@
+{
+  "welcome": {
+    "hello": "Hello",
+    "engineer": "Engineer",
+    "subtitle": "Select the sector to view available tests.",
+    "sector_label": "Sector",
+    "sector_placeholder": "Select sector...",
+    "test_type_label": "Test Type",
+    "test_type_placeholder": "Select test type...",
+    "items_for": "Items and Tests for",
+    "filter_placeholder": "Filter tests...",
+    "unavailable": "Unavailable",
+    "no_tests_found": "No tests found for",
+    "next_step": "Next Step"
+  },
+  "settings": {
+    "title": "Settings",
+    "appearance": "Appearance",
+    "light": "Light",
+    "dark": "Dark",
+    "accessibility": "Accessibility",
+    "font_size": "Font Size",
+    "cursor_size": "Cursor Size",
+    "normal": "Normal",
+    "large": "Large",
+    "extra": "Extra",
+    "dyslexia_font": "Dyslexia Font",
+    "dyslexia_subtitle": "Uses Lexend for better reading",
+    "language": "Language",
+    "portuguese": "Portuguese",
+    "english": "English",
+    "close": "Close settings"
+  },
+  "common": {
+    "error": "Error",
+    "loading": "Loading...",
+    "back": "Back",
+    "next": "Next",
+    "process": "Process",
+    "processing": "Processing...",
+    "verifying": "Verifying..."
+  },
+  "stepper": {
+    "selection": "Selection",
+    "upload": "Upload",
+    "processing": "Processing",
+    "result": "Result"
+  },
+  "upload": {
+    "title": "File Upload",
+    "subtitle": "Select files analogous to the test.",
+    "requirements_title": "Test Prerequisites",
+    "requirements_subtitle": "To process this test, you must attach the following files mandatory:",
+    "capa_liberacao": "Release Sheet (.pdf)",
+    "imagens_analogas": "Analogous Images (.png/jpeg)",
+    "registro_ensaio": "Test Record (.xlsx/xls)",
+    "dropzone_active": "Invalid file!",
+    "dropzone_idle": "Drag files here",
+    "dropzone_sub_active": "Review file requirements",
+    "dropzone_sub_idle": "or click to browse",
+    "file_pdf": "PDF Document",
+    "file_excel": "Excel Spreadsheet",
+    "file_image": "Image",
+    "error_unsupported": "File {{name}} is not supported.",
+    "error_pdf_required": "Release Sheet (.PDF) is required.",
+    "error_image_required": "At least one Analogous Image (.png/jpeg) is required.",
+    "error_excel_required": "Test Record (.xlsx/xls) is required.",
+    "error_test2_required": "Required TESTE2 file missing: {{name}}",
+    "success_files_added_one": "1 file added.",
+    "success_files_added_other": "{{count}} files added.",
+    "success_layout_validated": "Layout successfully validated!"
+  },
+  "loading": {
+    "ocr_processing": "Processing OCR on images...",
+    "extracting_data": "Extracting technical data...",
+    "formatting_word": "Formatting Word document...",
+    "startup": "Starting processing...",
+    "finalizing": "Finalizing report...",
+    "error": "Processing error."
+  },
+  "result": {
+    "title": "Report Completed!",
+    "subtitle": "Data processed successfully. Your Word document is ready.",
+    "download_success": "Download started!",
+    "download_error": "Error downloading report.",
+    "opening": "Opening...",
+    "open_button": "Open Word Report (.docx)",
+    "restart_button": "Start New Processing",
+    "file_saved_at": "The file was saved at:"
+  },
+  "startup": {
+    "slogan": "Precisely Right.",
+    "initializing": "Initializing System"
+  }
+}

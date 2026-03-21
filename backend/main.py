@@ -84,9 +84,18 @@ def process_documents():
         layout_id_b64 = request.form.get('layout_id')
         if layout_id_b64:
             try:
-                # Adiciona o padding que pode ser perdido na transferência
+                # Remove espaços ou quebras de linha que podem corromper o base64
+                layout_id_b64 = layout_id_b64.replace(" ", "").replace("\n", "").replace("\r", "")
+                
+                # Adiciona o padding manual que pode ser perdido
                 layout_id_b64 += "=" * ((4 - len(layout_id_b64) % 4) % 4)
-                layout_filename = base64.b64decode(layout_id_b64).decode('utf-8')
+                
+                # Decodificação segura: tenta UTF-8, se falhar tenta ISO-8859-1 (Latin1)
+                decoded_bytes = base64.b64decode(layout_id_b64)
+                try:
+                    layout_filename = decoded_bytes.decode('utf-8')
+                except UnicodeDecodeError:
+                    layout_filename = decoded_bytes.decode('iso-8859-1')
             except Exception as e:
                 logger.error(f"Erro ao decodificar base64 ({layout_id_b64}): {str(e)}")
                 layout_filename = f"{main_test}.docx"
@@ -217,9 +226,16 @@ def check_layout():
         layout_id_b64 = data.get('layout_id')
         if layout_id_b64:
             try:
-                # Adiciona o padding que pode ser perdido na transferência
+                # Limpeza e Padding
+                layout_id_b64 = layout_id_b64.replace(" ", "").replace("\n", "").replace("\r", "")
                 layout_id_b64 += "=" * ((4 - len(layout_id_b64) % 4) % 4)
-                layout_filename = base64.b64decode(layout_id_b64).decode('utf-8')
+                
+                # Decodificação resiliente
+                decoded_bytes = base64.b64decode(layout_id_b64)
+                try:
+                    layout_filename = decoded_bytes.decode('utf-8')
+                except UnicodeDecodeError:
+                    layout_filename = decoded_bytes.decode('iso-8859-1')
             except Exception as e:
                 logger.error(f"Erro ao decodificar base64 em check_layout ({layout_id_b64}): {str(e)}")
                 layout_filename = f"{main_test}.docx"
@@ -396,7 +412,7 @@ if __name__ == "__main__":
 
     api = Api()
     window = webview.create_window(
-        "OCR automation for reports", 
+        "Automation Project", 
         url=window_url, 
         js_api=api,
         width=1280,

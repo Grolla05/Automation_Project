@@ -1,9 +1,12 @@
+import { lazy } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import RootLayout from '../components/RootLayout';
-import WelcomeScreen from '../screens/WelcomeScreen';
-import UploadScreen from '../screens/UploadScreen';
-import LoadingScreen from '../screens/LoadingScreen';
-import CompletionScreen from '../screens/CompletionScreen';
+
+// Dynamic Imports (Code Splitting)
+const WelcomeScreen = lazy(() => import('../screens/WelcomeScreen'));
+const UploadScreen = lazy(() => import('../screens/UploadScreen'));
+const LoadingScreen = lazy(() => import('../screens/LoadingScreen'));
+const CompletionScreen = lazy(() => import('../screens/CompletionScreen'));
 
 /**
  * Router centralizado da aplicação.

@@ -1,44 +1,33 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Navigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Card from '../components/ui/Card';
 import { api } from '../services/api';
 import { useSession } from '../context/SessionContext';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface ProgressInterval {
-  threshold: number;
-  text: string;
-}
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const PROGRESS_INTERVALS: ProgressInterval[] = [
-  { threshold: 30, text: 'Processando OCR em imagens...' },
-  { threshold: 60, text: 'Extraindo dados técnicos...' },
-  { threshold: 85, text: 'Formatando documento Word...' },
-];
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
-/**
- * LoadingScreen — Rota `/process`
- *
- * Guard: redireciona para `/upload` se não houver arquivos na sessão.
- */
 const LoadingScreen = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { session, setReportPath } = useSession();
 
   const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState('Iniciando processamento...');
+  const [status, setStatus] = useState(t('loading.startup'));
   const isMountedRef = useRef(true);
 
   // ── Guard ──────────────────────────────────────────────────────────────────
   if (session.files.length === 0) {
     return <Navigate to="/upload" replace />;
   }
+
+  // ── Progress Intervals ─────────────────────────────────────────────────────
+  const PROGRESS_INTERVALS = [
+    { threshold: 30, text: t('loading.ocr_processing') },
+    { threshold: 60, text: t('loading.extracting_data') },
+    { threshold: 85, text: t('loading.formatting_word') },
+  ];
 
   // ── OCR Processing ─────────────────────────────────────────────────────────
   // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -56,7 +45,7 @@ const LoadingScreen = () => {
 
         if (isMountedRef.current) {
           setProgress(100);
-          setStatus('Finalizando relatório...');
+          setStatus(t('loading.finalizing'));
           setTimeout(() => {
             setReportPath(result.path);
             navigate('/result');
@@ -64,7 +53,7 @@ const LoadingScreen = () => {
         }
       } catch (err) {
         if (isMountedRef.current) {
-          setStatus('Erro no processamento.');
+          setStatus(t('loading.error'));
           console.error('OCR API error:', err);
         }
       }
@@ -89,9 +78,8 @@ const LoadingScreen = () => {
       isMountedRef.current = false;
       clearInterval(timer);
     };
-  // session values are stable references from SessionContext — safe to list
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [t]);
 
   return (
     <motion.div

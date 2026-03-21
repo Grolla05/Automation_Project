@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -11,6 +12,8 @@ interface StartupLoadingProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const StartupLoading = ({ onFinish }: StartupLoadingProps) => {
+  const { t } = useTranslation();
+
   useEffect(() => {
     const timer = setTimeout(() => {
       onFinish();
@@ -60,7 +63,7 @@ const StartupLoading = ({ onFinish }: StartupLoadingProps) => {
             transition={{ delay: 0.8 }}
             className="text-apple-blue font-bold text-xl md:text-3xl tracking-tight text-center"
           >
-            Precisely Right.
+            {t('startup.slogan')}
           </motion.p>
 
           <motion.div
@@ -71,7 +74,7 @@ const StartupLoading = ({ onFinish }: StartupLoadingProps) => {
           >
             <span className="w-1.5 h-1.5 md:w-2 md:h-2 bg-apple-blue rounded-full animate-pulse" />
             <p className="text-apple-secondary text-[10px] md:text-xs font-bold tracking-[0.3em] md:tracking-[0.4em] uppercase opacity-60">
-              Inicializando Sistema
+              {t('startup.initializing')}
             </p>
           </motion.div>
         </motion.div>

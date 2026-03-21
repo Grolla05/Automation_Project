@@ -1,28 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { Settings, CheckCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import SettingsModal from './SettingsModal';
 import StartupLoading from '../screens/StartupLoading';
 import ErrorBoundary from './ErrorBoundary';
 import { useSession } from '../context/SessionContext';
 import { api } from '../services/api';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const STEPS = [
-  { path: '/',        label: 'Seleção'    },
-  { path: '/upload',  label: 'Upload'     },
-  { path: '/process', label: 'Processando' },
-  { path: '/result',  label: 'Resultado'  },
-] as const;
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const RootLayout = () => {
   const { pathname } = useLocation();
+  const { t } = useTranslation();
   const [isStarting, setIsStarting] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const STEPS = [
+    { path: '/',        label: t('stepper.selection')    },
+    { path: '/upload',  label: t('stepper.upload')       },
+    { path: '/process', label: t('stepper.processing') },
+    { path: '/result',  label: t('stepper.result')      },
+  ] as const;
 
   const { setUserData } = useSession();
   const currentStepIndex = STEPS.findIndex((s) => s.path === pathname);
@@ -55,7 +55,7 @@ const RootLayout = () => {
         <button
           onClick={() => setIsSettingsOpen(true)}
           className="fixed top-4 right-4 md:top-6 md:right-6 z-50 p-2.5 md:p-3 rounded-full bg-apple-white shadow-apple hover:shadow-apple-hover transition-all duration-300 group cursor-pointer border border-apple-gray dark:border-white/10"
-          aria-label="Configurações"
+          aria-label={t('settings.title')}
         >
           <Settings
             size={18}
@@ -121,12 +121,15 @@ const RootLayout = () => {
           <ErrorBoundary>
             {!isStarting && (
               <AnimatePresence mode="wait">
-                <Outlet />
+                <Suspense fallback={<div className="w-full flex justify-center py-20 animate-pulse text-apple-secondary">{t('common.loading')}</div>}>
+                  <Outlet />
+                </Suspense>
               </AnimatePresence>
             )}
           </ErrorBoundary>
         </div>
       </main>
+
     </div>
   );
 };

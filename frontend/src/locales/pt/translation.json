@@ -1,0 +1,95 @@
+{
+  "welcome": {
+    "hello": "Olá",
+    "engineer": "Engenheiro",
+    "subtitle": "Selecione o setor para visualizar os ensaios disponíveis.",
+    "sector_label": "Setor",
+    "sector_placeholder": "Selecione o setor...",
+    "test_type_label": "Tipo de Ensaio",
+    "test_type_placeholder": "Selecione o tipo de ensaio...",
+    "items_for": "Itens e Ensaios para",
+    "filter_placeholder": "Filtrar ensaios...",
+    "unavailable": "Indisponível",
+    "no_tests_found": "Nenhum ensaio encontrado para",
+    "next_step": "Próximo Passo"
+  },
+  "settings": {
+    "title": "Configurações",
+    "appearance": "Aparência",
+    "light": "Claro",
+    "dark": "Escuro",
+    "accessibility": "Acessibilidade",
+    "font_size": "Tamanho da Fonte",
+    "cursor_size": "Tamanho do Cursor",
+    "normal": "Normal",
+    "large": "Grande",
+    "extra": "Extra",
+    "dyslexia_font": "Fonte para Dislexia",
+    "dyslexia_subtitle": "Usa Lexend para melhor leitura",
+    "language": "Idioma",
+    "portuguese": "Português",
+    "english": "Inglês",
+    "close": "Fechar configurações"
+  },
+  "common": {
+    "error": "Erro",
+    "loading": "Carregando...",
+    "back": "Voltar",
+    "next": "Próximo",
+    "process": "Processar",
+    "processing": "Processando...",
+    "verifying": "Verificando..."
+  },
+  "stepper": {
+    "selection": "Seleção",
+    "upload": "Upload",
+    "processing": "Processando",
+    "result": "Resultado"
+  },
+  "upload": {
+    "title": "Upload de Arquivos",
+    "subtitle": "Selecione os arquivos análogos ao ensaio.",
+    "requirements_title": "Pré-requisitos do Ensaio",
+    "requirements_subtitle": "Para processar este ensaio, você deve anexar obrigatoriamente os seguintes arquivos:",
+    "capa_liberacao": "Capa de Liberação (.pdf)",
+    "imagens_analogas": "Imagens Análogas (.png/jpeg)",
+    "registro_ensaio": "Registro de Ensaio (.xlsx/xls)",
+    "dropzone_active": "Arquivo inválido!",
+    "dropzone_idle": "Arraste arquivos aqui",
+    "dropzone_sub_active": "Revise os requisitos de arquivo",
+    "dropzone_sub_idle": "ou clique para navegar",
+    "file_pdf": "Documento PDF",
+    "file_excel": "Planilha Excel",
+    "file_image": "Imagem",
+    "error_unsupported": "O arquivo {{name}} não é suportado.",
+    "error_pdf_required": "A Capa de Liberação (.PDF) é obrigatória.",
+    "error_image_required": "Pelo menos uma Imagem Análoga (.png/jpeg) é obrigatória.",
+    "error_excel_required": "A Planilha de Registro (.xlsx/xls) é obrigatória.",
+    "error_test2_required": "Arquivo obrigatório do TESTE2 ausente: {{name}}",
+    "success_files_added_one": "1 arquivo adicionado.",
+    "success_files_added_other": "{{count}} arquivos adicionados.",
+    "success_layout_validated": "Layout validado com sucesso!"
+  },
+  "loading": {
+    "ocr_processing": "Processando OCR em imagens...",
+    "extracting_data": "Extraindo dados técnicos...",
+    "formatting_word": "Formatando documento Word...",
+    "startup": "Iniciando processamento...",
+    "finalizing": "Finalizando relatório...",
+    "error": "Erro no processamento."
+  },
+  "result": {
+    "title": "Relatório Concluído!",
+    "subtitle": "Os dados foram processados com sucesso. O seu documento Word já está pronto.",
+    "download_success": "Download iniciado!",
+    "download_error": "Erro ao baixar o relatório.",
+    "opening": "Abrindo...",
+    "open_button": "Abrir Relatório Word (.docx)",
+    "restart_button": "Iniciar Novo Processamento",
+    "file_saved_at": "O arquivo foi salvo em:"
+  },
+  "startup": {
+    "slogan": "Precisely Right.",
+    "initializing": "Inicializando Sistema"
+  }
+}

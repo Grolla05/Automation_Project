@@ -22,6 +22,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "types": ["node", "vitest/globals"],
 
     /* Paths */
     "baseUrl": ".",
@@ -29,6 +30,6 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "e2e", "*.config.ts", "tests/fixtures"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

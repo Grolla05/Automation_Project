@@ -3,7 +3,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "./axiosInstance";
-import { LAYOUT_MAPPING } from "../lib/data";
+import { getLayoutIdForTest } from "../lib/data";
 import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -28,7 +28,6 @@ export interface SaveSettingsResult {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
 const isWebView = (): boolean => window.pywebview !== undefined;
 
 // ─── API Core Functions (Axios) ───────────────────────────────────────────────
@@ -66,17 +65,30 @@ const apiCore = {
 
   checkLayout: async (tests: string[]): Promise<boolean> => {
     const mainTest = tests[0] ?? "Padrao";
-    const layoutId = LAYOUT_MAPPING[mainTest] ?? btoa(`${mainTest}.docx`);
-try {
+    const layoutId = getLayoutIdForTest(mainTest);
+
+    console.log(`[API] Validando layout para: ${mainTest}`, {
+      tests,
+      layout_id_b64: layoutId
+    });
+
+    try {
       const { data } = await axiosInstance.post<{ success?: boolean; error?: string }>("/check_layout", {
         tests,
         layout_id: layoutId,
       });
 
+      console.log("[API] Resposta check_layout:", data);
+
       if (data.error) throw new Error(data.error);
       return data.success ?? false;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Erro ao validar layout";
+    } catch (error: any) {
+      console.error("[API] Erro em check_layout:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      const message = error.response?.data?.error || error.message || "Erro ao validar layout";
       toast.error(message);
       throw error;
     }
@@ -92,7 +104,7 @@ try {
     formData.append("tests", JSON.stringify(tests));
 
     const mainTest = tests[0] ?? "Padrao";
-    const layoutId = LAYOUT_MAPPING[mainTest] ?? btoa(`${mainTest}.docx`);
+    const layoutId = getLayoutIdForTest(mainTest);
 
     formData.append("layout_id", layoutId);
     
@@ -103,9 +115,16 @@ try {
       }
     });
 
+    console.log(`[API] Iniciando processamento de ${files.length} arquivos para o setor ${sector}.`, {
+      tests,
+      mainTest,
+      layoutId
+    });
+
     const promise = axiosInstance.post<{
       success: boolean;
       report_path: string;
+      error?: string;
     }>("/process", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
@@ -113,9 +132,15 @@ try {
     toast.promise(promise, {
       loading: 'Processando documentos e extraindo dados...',
       success: (response) => {
+        console.log("[API] Sucesso no processamento:", response.data);
         return 'Processamento concluído com sucesso!';
       },
       error: (err) => {
+        console.error("[API] Erro no processamento:", {
+          message: err.message,
+          response: err.response?.data,
+          status: err.response?.status
+        });
         return err.response?.data?.error || 'Erro ao processar arquivos.';
       },
     });

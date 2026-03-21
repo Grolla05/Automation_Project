@@ -67,6 +67,8 @@ export const LAYOUT_MAPPING: Record<string, string> = {
   "ENSAIOS DE CABL": btoa("P4/CABL_layout.docx"),
   "ENSAIOS DE MED": btoa("P5/MED_layout.docx"),
   "SERINGA HIPODÉRMICA": btoa("P5/ASE_SH_layout.docx"),
+  "AGULHA HIPODÉRMICA": btoa("P5/ASE_SH_layout.docx"),
+  "AGULHA GENVIAL": btoa("P5/ASE_SH_layout.docx"),
   "SERINGA DE USO EM BOMBA": btoa("P5/ASE_SB_layout.docx"),
   "SERINGA DE INSULINA": btoa("P5/ASE_SI_layout.docx"),
   "EQUIPAMENTO GRAVITACIONAL": btoa("P5/ASE_EG_layout.docx"),
@@ -76,4 +78,47 @@ export const LAYOUT_MAPPING: Record<string, string> = {
   "EQUIPAMENTO DE BURETA": btoa("P5/ASE_EB_layout.docx"),
   "SIRINGA DE DOSE FIXA PARA IMUNIZAÇÃO": btoa("P5/ASE_SDFI_layout.docx"),
   "EQUIPAMENTO DE TRANSFUSÃO PARA USO EM BOMBA": btoa("P5/ASE_ETB_layout.docx"),
+};
+
+/**
+ * Retorna os tipos de ensaio disponíveis para um determinado setor.
+ */
+export const getTestTypesForSector = (sector: string): string[] => {
+  if (!sector || !SECTOR_DATA[sector]) return [];
+  return Object.keys(SECTOR_DATA[sector]);
+};
+
+/**
+ * Retorna a lista de ensaios (disponibilidade) para um setor e tipo específicos.
+ */
+export const getTestsForType = (sector: string, testType: string): TestAvailability[] => {
+  if (!sector || !testType || !SECTOR_DATA[sector]?.[testType]) return [];
+  return SECTOR_DATA[sector][testType].flat();
+};
+
+/**
+ * Retorna o ID do layout (Base64) para um determinado nome de ensaio.
+ * Caso não encontre no mapeamento fixo, gera um fallback baseado no nome.
+ */
+export const getLayoutIdForTest = (testName: string): string => {
+  if (!testName) return btoa("Padrao.docx");
+  
+  const mapped = LAYOUT_MAPPING[testName];
+  if (mapped) return mapped;
+
+  // Fallback robusto para nomes não mapeados explicitamente (ex: acentos)
+  try {
+    return btoa(encodeURIComponent(testName + ".docx").replace(/%([0-9A-F]{2})/g, (_, p1) => 
+      String.fromCharCode(parseInt(p1, 16))
+    ));
+  } catch (e) {
+    return btoa("Padrao.docx");
+  }
+};
+
+/**
+ * Valida se um setor existe na base de dados.
+ */
+export const isValidSector = (sector: string): boolean => {
+  return sector in SECTOR_DATA;
 };

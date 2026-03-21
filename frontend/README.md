@@ -1,37 +1,42 @@
 # 💻 Frontend - OCR Automation Interface
 
-Este é o frontend da aplicação de automação de laudos, desenvolvido com **React** e **Vite**, focado em uma experiência de usuário (UX) premium baseada nos princípios de design da Apple (limpo, responsivo e intuitivo).
+Este é o frontend da aplicação de automação de laudos técnicos, desenvolvido com as tecnologias mais modernas do ecossistema JavaScript (**React 19** e **Vite 7**). O foco principal é proporcionar uma experiência de usuário (UX) premium: limpa, responsiva, acessível e altamente intuitiva para engenheiros e técnicos.
 
 ---
 
 ## 🚀 Stack Tecnológica
 
-- **React 18 + TypeScript**: Base da aplicação.
-- **TanStack React Query (v5)**: Gerenciamento de estado assíncrono, cache e sincronização de dados.
-- **Axios + Axios-Retry**: Cliente HTTP com interceptores e política de retentativa automática (3x) para lidar com falhas de conexão no backend (Porta 5000).
-- **Tailwind CSS**: Estilização moderna e utilitária.
-- **Framer Motion**: Micro-animações e transições de tela.
-- **Lucide React**: Biblioteca de ícones minimalistas.
+A aplicação utiliza um conjunto de ferramentas de ponta para garantir performance e manutenibilidade:
+
+- **React 19 + TypeScript**: Base da aplicação com tipagem estática e as últimas funcionalidades do ecossistema.
+- **Vite 7**: Ferramenta de build e servidor de desenvolvimento alternativo ao Webpack, extremamente rápido.
+- **TanStack React Query (v5)**: Gerenciamento inteligente de estado assíncrono, cacheamento e sincronização de dados com o backend.
+- **Tailwind CSS v4**: Estilização baseada em utilitários com o novo motor de alto desempenho.
+- **Framer Motion 12**: Biblioteca de animações potente para transições fluidas e micro-interações.
+- **Radix UI**: Primitivos de componentes acessíveis (WAI-ARIA) que servem como base para o nosso Design System.
+- **Playwright**: Framework moderno para testes de ponta a ponta (E2E).
+- **Vitest**: Runner de testes unitários ultrarrápido integrado ao ecossistema Vite.
+- **i18next**: Sistema robusto de internacionalização para suporte multi-idioma.
+- **Sentry**: Monitoramento de erros em tempo real para garantir estabilidade em produção.
+- **Axios + Axios-Retry**: Cliente HTTP com políticas automáticas de tentativa em caso de falha de conexão.
 
 ---
 
 ## 🏗️ Arquitetura e Organização
 
-A aplicação segue uma estrutura modular para facilitar a manutenção e escalabilidade.
+O projeto segue uma estrutura modular e organizada por responsabilidades:
 
-### Estrutura de Pastas e Arquivos Chave
-
-- `src/components/`: Componentes de UI reutilizáveis (Botões, Cards, Modais).
-- `src/components/ui/`: Componentes básicos do Design System.
-- `src/screens/`: Containers de tela que representam o fluxo do usuário (Welcome, Upload, Loading, Completion).
-- `src/services/`: Camada de comunicação de rede.
-- `src/services/axiosInstance.ts`: Configuração central do Axios com interceptores de erro e lógica de retry.
-- `src/services/api.ts`: Centralização das chamadas de API e Hooks do React Query (`useUserInfo`, `useSettings`, `useProcessImages`).
-- `src/hooks/`: Hooks customizados (ex: `useTheme` para Dark Mode).
-- `src/context/`: Contextos globais (ex: `SessionContext`).
-- `src/lib/`: Constantes, mapeamentos de layout e configurações locais em JSON.
+- `src/components/`: Componentes de interface reutilizáveis.
+- `src/components/ui/`: Componentes atômicos do Design System (Botões, Cards, Inputs).
+- `src/screens/`: Telas principais que compõem o fluxo do "Wizard" (Seleção, Upload, Processamento, Resultado).
+- `src/services/`: Camada de comunicação com a API (Axios, React Query hooks).
+- `src/hooks/`: Hooks customizados para lógica compartilhada.
+- `src/context/`: Provedores de estado global.
+- `src/lib/`: Lógica de dados, constantes de setores e mapeamentos de layouts.
+- `src/locales/`: Arquivos de tradução (JSON) para Português e Inglês.
 - `src/router/`: Configuração das rotas da aplicação.
-- `src/schemas/`: Validações de formulários e esquemas de dados (Zod/Upload).
+- `src/schemas/`: Esquemas de validação de dados usando **Zod**.
+- `e2e/`: Testes automatizados que simulam a navegação real do usuário no navegador.
 
 ---
 
@@ -41,6 +46,29 @@ A aplicação segue uma estrutura modular para facilitar a manutenção e escala
 - **Framer Motion**: Responsável pelas transições suaves de saída/entrada entre as telas e micro-animações.
 - **Lucide React**: Biblioteca de pacote de ícones modernos e minimalistas (SVG).
 - **Dark Mode**: Suporte inteligente à paleta de cores escurecidas adaptada no núcleo do Tailwind (Variáveis Custom).
+
+---
+
+## 🛠️ Automação e Qualidade de Código
+
+Para garantir a padronização do código e evitar commits com erros fatais, o projeto utiliza:
+
+- **ESLint 9**: Linter configurado para as melhores práticas de React e TypeScript.
+- **Husky 9**: Hooks de Git integrados ao repositório.
+- **lint-staged**: Executa verificações automáticas apenas nos arquivos afetados antes de cada commit.
+  - *Ação:* Roda `eslint --fix` automaticamente em arquivos JS/TS preparados.
+  - *Segurança:* Impede o commit se houver quebras de regras críticas do linter.
+
+---
+
+## 🔄 Fluxo de Funcionamento (Wizard)
+
+A interface guia o usuário através de 4 etapas principais:
+
+1. **Seleção (WelcomeScreen)**: O usuário escolhe o **Setor** (ex: P3, P5), o **Tipo de Ensaio** (ex: ASE, EMC) e seleciona quais ensaios específicos deseja realizar. A lógica de filtragem é instantânea.
+2. **Envio de Arquivos (UploadScreen)**: Interface inteligente que solicita arquivos específicos baseada na seleção anterior. Valida formatos (PDF, Excel, Images) e nomes de arquivos obrigatórios.
+3. **Processamento (LoadingScreen)**: Exibe o progresso real da extração de dados via OCR e processamento de IA no backend.
+4. **Resultado (CompletionScreen)**: Permite o download imediato ou abertura do relatório `.docx` finalizado.
 
 ---
 
@@ -54,25 +82,87 @@ A aplicação segue uma estrutura modular para facilitar a manutenção e escala
 
 ---
 
-## 🛠️ Configuração de Rede (Resiliência)
+## 🧪 Testes e Qualidade
 
-Para lidar com a volatilidade do backend Python (Flask), a aplicação implementa:
+Como parte de uma cultura de **QA Sênior**, o projeto possui uma camada de testes rigorosa:
 
-- **Retry (3x)**: Tentativas automáticas em erros de rede ou status 5xx.
-- **Interceptors**: Logs centralizados de falhas de comunicação no console de desenvolvimento.
-- **Cache**: React Query mantém os dados de configurações e usuário em cache, reduzindo o tráfego de rede.
+### Testes Unitários (Vitest)
+
+Focados em testar a lógica pura e os componentes de forma isolada.
+
+- Localização: `src/**/*.test.ts`
+- Comando: `npm test`
+
+### Testes E2E (Playwright)
+
+Simulam um usuário real preenchendo o Wizard e subindo arquivos. Garantem que o fluxo principal está funcionando do início ao fim.
+
+- Localização: `e2e/`
+- Comando: `npm run test:e2e`
+
+### Cobertura de Código
+
+Gera relatórios de quais partes do código estão sendo testadas.
+
+- Comando: `npm run test:coverage`
 
 ---
 
-## 💻 Comandos Disponíveis
+## 🌍 Internacionalização (i18n)
 
-```bash
-# Instalar dependências
-npm install
+A aplicação é totalmente bilingue.
 
-# Rodar em modo desenvolvimento (Hot Reload)
-npm run dev
+- **Idiomas suportados**: Português (pt-BR) e Inglês (en-US).
+- **Troca de Idioma**: Pode ser feita através do modal de configurações. O sistema detecta automaticamente o idioma do navegador do usuário.
 
-# Gerar build de produção para o diretório /dist
-npm run build
-```
+---
+
+## 🛠️ Guia do Desenvolvedor: Como Rodar o Projeto
+
+### Pré-requisitos
+
+- **Node.js**: Versão 18 ou superior.
+- **NPM**: Gerenciador de pacotes (vem com o Node).
+
+### Passo a Passo
+
+1. **Instalação**:
+    Abra o terminal na pasta `frontend` e execute:
+
+    ```bash
+    npm install
+    ```
+
+2. **Desenvolvimento**:
+    Para iniciar o servidor de desenvolvimento com atualização em tempo real:
+
+    ```bash
+    npm run dev
+    ```
+
+    Acesse no navegador: `http://localhost:5173`
+
+3. **Executar Testes**:
+
+    ```bash
+    # Testes unitários (Lógica de dados)
+    npm test
+    
+    # Testes de navegação (E2E)
+    npm run test:e2e
+    ```
+
+4. **Gerar Versão de Produção**:
+    Para criar uma versão otimizada para o cliente final:
+
+    ```bash
+    npm run build
+    ```
+
+---
+
+## 🛡️ Configurações e Segurança
+
+- **Resiliência**: O sistema tenta reconectar com o backend automaticamente se houver uma falha momentânea de rede.
+- **Validação**: Nenhum dado inválido é enviado ao servidor graças à validação prévia com **Zod** no frontend.
+- **Monitoramento**: Erros críticos são reportados silenciosamente ao **Sentry** para que a equipe de engenharia possa corrigir antes mesmo do usuário notar.

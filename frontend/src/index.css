@@ -23,14 +23,14 @@
 
 /* Dark Mode Overrides */
 .dark {
-  --color-apple-bg: #333333;
-  --color-apple-white: #3e3e3e;
+  --color-apple-bg: #1c1c1e;
+  --color-apple-white: #2c2c2e;
   --color-apple-text: #f5f5f7;
   --color-apple-secondary: #a1a1a6;
-  --color-apple-blue: #409cff;
-  --color-apple-gray: #4f4f4f;
-  --shadow-apple: 0 4px 12px rgba(0, 0, 0, 0.5);
-  --shadow-apple-hover: 0 8px 24px rgba(0, 0, 0, 0.7);
+  --color-apple-blue: #0a84ff;
+  --color-apple-gray: #3a3a3c;
+  --shadow-apple: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-apple-hover: 0 8px 24px rgba(0, 0, 0, 0.6);
 }
 
 @layer base {
