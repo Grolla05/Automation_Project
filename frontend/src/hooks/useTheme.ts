@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api, type AppSettings } from "../services/api";
+import i18n from "../i18n";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -9,6 +10,7 @@ type CursorSize = "normal" | "large" | "extralarge";
 
 interface ThemeSettings {
   theme: Theme;
+  language: string;
   fontSize: FontSize;
   cursorSize: CursorSize;
   dyslexicFont: boolean;
@@ -24,6 +26,7 @@ type SettingValueMap = {
 
 export interface UseThemeReturn {
   theme: Theme;
+  language: string;
   fontSize: FontSize;
   cursorSize: CursorSize;
   dyslexicFont: boolean;
@@ -35,6 +38,7 @@ export interface UseThemeReturn {
 
 const DEFAULT_SETTINGS: ThemeSettings = {
   theme: "light",
+  language: "pt",
   fontSize: "normal",
   cursorSize: "normal",
   dyslexicFont: false,
@@ -92,6 +96,11 @@ export const useTheme = (): UseThemeReturn => {
       body.classList.remove("dyslexic-font");
     }
 
+    // Apply Language
+    if (i18n.language !== settings.language) {
+      i18n.changeLanguage(settings.language);
+    }
+
     // Persist to backend
     api.saveSettings(settings as unknown as AppSettings);
   }, [settings]);
@@ -112,6 +121,7 @@ export const useTheme = (): UseThemeReturn => {
 
   return {
     theme: settings.theme,
+    language: settings.language,
     fontSize: settings.fontSize,
     cursorSize: settings.cursorSize,
     dyslexicFont: settings.dyslexicFont,

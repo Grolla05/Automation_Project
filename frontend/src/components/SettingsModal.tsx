@@ -14,15 +14,16 @@ interface SettingsModalProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const {
     theme, toggleTheme,
-    fontSize, cursorSize,
-    dyslexicFont, updateSetting,
+    language, fontSize,
+    cursorSize, dyslexicFont,
+    updateSetting,
   } = useTheme();
 
   const changeLanguage = (lng: string) => {
-    i18n.changeLanguage(lng);
+    updateSetting('language', lng);
   };
 
   return (
@@ -116,7 +117,7 @@ const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                         <button
                           onClick={() => changeLanguage('pt')}
                           className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs md:text-sm font-medium rounded-md transition-all cursor-pointer ${
-                            i18n.language.startsWith('pt')
+                            language.startsWith('pt')
                               ? 'bg-apple-white shadow-sm text-apple-blue border border-apple-gray/20'
                               : 'text-apple-secondary hover:text-apple-text'
                           }`}
@@ -127,7 +128,7 @@ const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                         <button
                           onClick={() => changeLanguage('en')}
                           className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs md:text-sm font-medium rounded-md transition-all cursor-pointer ${
-                            i18n.language.startsWith('en')
+                            language.startsWith('en')
                               ? 'bg-apple-white shadow-sm text-apple-blue border border-apple-gray/20'
                               : 'text-apple-secondary hover:text-apple-text'
                           }`}

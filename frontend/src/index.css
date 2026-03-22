@@ -1,6 +1,27 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lexend:wght@300;400;500;600;700&display=swap");
 @import "tailwindcss";
 
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("./font/OpenDyslexic-Regular.otf") format("opentype");
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("./font/OpenDyslexic-Bold.otf") format("opentype");
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("./font/OpenDyslexic-Italic.otf") format("opentype");
+  font-weight: normal;
+  font-style: italic;
+}
+
 @theme {
   --color-apple-bg: #f5f5f7;
   --color-apple-white: #ffffff;
@@ -18,7 +39,7 @@
   --font-sans:
     "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
     "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  --font-dyslexic: "Lexend", sans-serif;
+  --font-dyslexic: "OpenDyslexic", "Lexend", sans-serif;
 }
 
 /* Dark Mode Overrides */
@@ -61,7 +82,7 @@
 
   /* Dyslexic Font via useTheme */
   body.dyslexic-font * {
-    font-family: "Lexend", sans-serif !important;
+    font-family: "OpenDyslexic", "Lexend", sans-serif !important;
   }
 
   /* Cursor Size via useTheme */

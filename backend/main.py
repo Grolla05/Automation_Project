@@ -9,6 +9,8 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from utils.logger_config import setup_logger
 from utils.cleanup import clean_temp_directories
+from utils.scheduler import start_cleanup_scheduler
+from utils.validators import RequestPayload, validate_payload
 from services.ocr_service import OCRService
 from services.pdfExtract_service import PDFExtractService
 from services.document_service import DocumentService
@@ -43,6 +45,33 @@ excel_service = ExcelService()
 
 # --- API FLASK ---
 
+from werkzeug.exceptions import HTTPException
+
+@app.errorhandler(Exception)
+def handle_global_exception(e):
+    # Se for um erro HTTP controlado (como 404, 400 via abort), retorna ele mesmo
+    if isinstance(e, HTTPException):
+        return e
+
+    """
+    Capturador Global de Exceções.
+    Garante que qualquer erro em rotas /api retorne uma interface amigável e segura,
+    enquanto registra o erro técnico com severidade CRITICAL no log.
+    """
+    if request.path.startswith('/api'):
+        # Loga com severidade CRITICAL e inclui o traceback completo para depuração interna
+        logger.critical(f"Falha crítica em {request.path}: {str(e)}", exc_info=True)
+        
+        return jsonify({
+            'success': False, 
+            'error_code': 'SYS_01', 
+            'message': 'Mensagem tratada e segura para humanos'
+        }), 500
+    
+    # Se não for uma rota /api, apenas loga e retorna erro padrão
+    logger.error(f"Erro inesperado fora da API: {str(e)}", exc_info=True)
+    return "Erro interno do servidor", 500
+
 @app.route('/')
 def serve_frontend():
     """Serve o frontend React de 'dist' se existir, senão avisa."""
@@ -59,201 +88,185 @@ def process_documents():
     """
     Endpoint principal para processamento de OCR e geração de Word.
     """
+    # 0. Validação Rígida do Contrato (Pydantic)
+    payload = validate_payload(RequestPayload)
+    
     request_id = datetime.now().strftime("%H%M%S")
     logger.info(f"[{request_id}] Recebida nova requisição de processamento.")
     
-    try:
-        if 'files' not in request.files:
-            logger.warning(f"[{request_id}] Falha: Nenhum arquivo enviado.")
-            return jsonify({"success": False, "error": "Nenhum arquivo enviado"}), 400
-        
-        files = request.files.getlist('files')
-        sector = request.form.get('sector', 'Geral')
-        
-        # Pega os testes (pode ser um array enviado como JSON string)
-        import json
-        tests_raw = request.form.get('tests', '[]')
+    if 'files' not in request.files:
+        logger.warning(f"[{request_id}] Falha: Nenhum arquivo enviado.")
+        return jsonify({"success": False, "error": "Nenhum arquivo enviado"}), 400
+    
+    files = request.files.getlist('files')
+    sector = payload.sector
+    tests_list = payload.tests
+    main_test = tests_list[0] if tests_list else "Padrao"
+    ocr_target = payload.ocr_target
+
+    # 1. Decodificação Resiliente do Layout (Base64)
+    layout_id_b64 = payload.layout_id
+    if layout_id_b64:
         try:
-            tests_list = json.loads(tests_raw)
-        except:
-            tests_list = [tests_raw] if tests_raw else []
-
-        main_test = tests_list[0] if tests_list else "Padrao"
-
-        # Usaremos o arquivo de layout determinado no frontend (layout_id) que vem em base64
-        layout_id_b64 = request.form.get('layout_id')
-        if layout_id_b64:
-            try:
-                # Remove espaços ou quebras de linha que podem corromper o base64
-                layout_id_b64 = layout_id_b64.replace(" ", "").replace("\n", "").replace("\r", "")
-                
-                # Adiciona o padding manual que pode ser perdido
-                layout_id_b64 += "=" * ((4 - len(layout_id_b64) % 4) % 4)
-                
-                # Decodificação segura: tenta UTF-8, se falhar tenta ISO-8859-1 (Latin1)
-                decoded_bytes = base64.b64decode(layout_id_b64)
-                try:
-                    layout_filename = decoded_bytes.decode('utf-8')
-                except UnicodeDecodeError:
-                    layout_filename = decoded_bytes.decode('iso-8859-1')
-            except Exception as e:
-                logger.error(f"Erro ao decodificar base64 ({layout_id_b64}): {str(e)}")
-                layout_filename = f"{main_test}.docx"
-        else:
-            layout_filename = f"{main_test}.docx"
+            # Limpeza e Padding manual para evitar erros de Base64
+            clean_b64 = layout_id_b64.replace(" ", "").replace("\n", "").replace("\r", "")
+            clean_b64 += "=" * ((4 - len(clean_b64) % 4) % 4)
             
-        logger.info(f"[{request_id}] Setor: {sector} | Teste Principal: {main_test} | Layout Arquivo: {layout_filename} | Arquivos: {len(files)}")
+            decoded_bytes = base64.b64decode(clean_b64)
+            layout_filename = decoded_bytes.decode('utf-8', errors='ignore') or f"{main_test}.docx"
+            if not layout_filename.endswith('.docx'):
+                layout_filename += '.docx'
+        except Exception as e:
+            logger.error(f"Erro ao decodificar base64 layout: {str(e)}")
+            layout_filename = f"{main_test}.docx"
+    else:
+        layout_filename = f"{main_test}.docx"
         
-        file_paths = []
-        for file in files:
-            if file.filename == '': continue
-            filename = secure_filename(file.filename)
-            file_path = os.path.join(UPLOAD_FOLDER, filename)
-            file.save(file_path)
-            file_paths.append(file_path)
-            logger.info(f"[{request_id}] Arquivo salvo: {filename}")
+    logger.info(f"[{request_id}] Setor: {sector} | Teste Principal: {main_test} | Layout Arquivo: {layout_filename} | Arquivos: {len(files)}")
+    
+    file_paths = []
+    for file in files:
+        if file.filename == '': continue
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(file_path)
+        file_paths.append(file_path)
+        logger.info(f"[{request_id}] Arquivo salvo: {filename}")
 
-        # Verificação do Arquivo de Layout antes de iniciar o OCR
-        layout_path = os.path.join(LAYOUT_FOLDER, layout_filename)
-        if not os.path.exists(layout_path):
-            logger.warning(f"[{request_id}] Falha: Layout '{layout_filename}' não encontrado.")
-            return jsonify({
-                "success": False, 
-                "error": "layout de relatório não registrado"
-            }), 400
+    # Verificação do Arquivo de Layout antes de iniciar o OCR
+    layout_path = os.path.join(LAYOUT_FOLDER, layout_filename)
+    if not os.path.exists(layout_path):
+        logger.warning(f"[{request_id}] Falha: Layout '{layout_filename}' não encontrado.")
+        return jsonify({
+            "success": False, 
+            "error": "layout de relatório não registrado"
+        }), 400
 
-        # Filtro Inteligente de Arquivos: Separa Imagens/PDF de Excel
-        # REGRA: OCR apenas para o arquivo de capa (marcado pelo frontend via 'ocr_target')
-        ocr_target = request.form.get('ocr_target')
-        ocr_paths = []
-        excel_paths = []
+    # Filtro Inteligente de Arquivos: Separa Imagens/PDF de Excel
+    # REGRA: OCR apenas para o arquivo de capa (marcado pelo frontend via 'ocr_target')
+    ocr_target = request.form.get('ocr_target')
+    ocr_paths = []
+    excel_paths = []
+    
+    for p in file_paths:
+        filename = os.path.basename(p)
+        ext = p.split('.')[-1].lower()
         
-        for p in file_paths:
+        # 1. Arquivos Excel vão para extração de dados
+        if ext in ['xlsx', 'xls']:
+            excel_paths.append(p)
+        
+        # 2. Somente o arquivo de capa (especificado no ocr_target) vai para OCR
+        elif ocr_target and filename == secure_filename(ocr_target):
+            ocr_paths.append(p)
+            logger.info(f"[{request_id}] Arquivo identificado como alvo de OCR: {filename}")
+        
+        # Se não for excel nem capa, o arquivo é ignorado no OCR (ex: fotos de teste)
+        else:
+            logger.info(f"[{request_id}] Arquivo ignorado no OCR (não é alvo): {filename}")
+
+    # Execução do OCR informando o layout para cortes inteligentes
+    normalized_layout = layout_filename.replace('.docx', '')
+            
+    # Dicionário Geral que armazenará todas as respostas extraídas de todos os arquivos
+    extracted_data_results = {}
+    
+    # 1. Extração da Capa (Inteligência de Chaveamento: Digital vs OCR)
+    if len(ocr_paths) > 0:
+        for p in ocr_paths:
             filename = os.path.basename(p)
             ext = p.split('.')[-1].lower()
+            success_digital = False
             
-            # 1. Arquivos Excel vão para extração de dados
-            if ext in ['xlsx', 'xls']:
-                excel_paths.append(p)
-            
-            # 2. Somente o arquivo de capa (especificado no ocr_target) vai para OCR
-            elif ocr_target and filename == secure_filename(ocr_target):
-                ocr_paths.append(p)
-                logger.info(f"[{request_id}] Arquivo identificado como alvo de OCR: {filename}")
-            
-            # Se não for excel nem capa, o arquivo é ignorado no OCR (ex: fotos de teste)
-            else:
-                logger.info(f"[{request_id}] Arquivo ignorado no OCR (não é alvo): {filename}")
-
-        # Execução do OCR informando o layout para cortes inteligentes
-        normalized_layout = layout_filename.replace('.docx', '')
+            # Tenta extração digital se for PDF
+            if ext == 'pdf':
+                logger.info(f"[{request_id}] Iniciando tentativa de extração DIGITAL para: {filename}")
+                digital_results = pdf_extract_service.extract_data(p)
                 
-        # Dicionário Geral que armazenará todas as respostas extraídas de todos os arquivos
-        extracted_data_results = {}
-        
-        # 1. Extração da Capa (Inteligência de Chaveamento: Digital vs OCR)
-        if len(ocr_paths) > 0:
-            for p in ocr_paths:
-                filename = os.path.basename(p)
-                ext = p.split('.')[-1].lower()
-                success_digital = False
-                
-                # Tenta extração digital se for PDF
-                if ext == 'pdf':
-                    logger.info(f"[{request_id}] Iniciando tentativa de extração DIGITAL para: {filename}")
-                    digital_results = pdf_extract_service.extract_data(p)
-                    
-                    # Verifica se a extração digital obteve campos válidos (além do raw_text e erro)
-                    if "error" not in digital_results and any(v != "Não encontrado" for k, v in digital_results.items() if k != "full_text_raw"):
-                        extracted_data_results[filename] = digital_results
-                        success_digital = True
-                        logger.info(f"[{request_id}] Sucesso na extração DIGITAL para: {filename}")
-                
-                # Se não for PDF ou se a extração digital falhar/não encontrar campos
-                if not success_digital:
-                    logger.info(f"[{request_id}] Iniciando processamento OCR para: {filename} (Digital falhou ou não aplicável)")
-                    ocr_results = ocr_service.process_batch([p], layout_name=normalized_layout)
-                    extracted_data_results.update(ocr_results)
+                # Verifica se a extração digital obteve campos válidos (além do raw_text e erro)
+                if "error" not in digital_results and any(v != "Não encontrado" for k, v in digital_results.items() if k != "full_text_raw"):
+                    extracted_data_results[filename] = digital_results
+                    success_digital = True
+                    logger.info(f"[{request_id}] Sucesso na extração DIGITAL para: {filename}")
             
-        # 2. Extração de Dados do Excel
-        if len(excel_paths) > 0:
-            logger.info(f"[{request_id}] Iniciando processamento Excel para {len(excel_paths)} arquivos...")
-            excel_results = excel_service.process_batch(excel_paths, layout_name=normalized_layout)
-            extracted_data_results.update(excel_results)
+            # Se não for PDF ou se a extração digital falhar/não encontrar campos
+            if not success_digital:
+                logger.info(f"[{request_id}] Iniciando processamento OCR para: {filename} (Digital falhou ou não aplicável)")
+                ocr_results = ocr_service.process_batch([p], layout_name=normalized_layout)
+                extracted_data_results.update(ocr_results)
         
-        # Preparando dados unificados para injeção no Word via Template
-        file_data_list = []
-        for file_path in file_paths:
-            name = os.path.basename(file_path)
-            # O get é importante para capturar textos de arquivos processados, ou strings vazias
-            text = extracted_data_results.get(name, "")
-            file_data_list.append({
-                "filename": name,
-                "text": text,
-                "path": file_path
-            })
-
-        # Geração do Relatório usando Layout
-        report_filename = f"Relatorio_{main_test.replace(' ', '_')}_{request_id}.docx"
-        
-        # O layout_name que passamos pro document_service terá a extensao .docx removida
-        output_path = doc_service.generate_report(
-            file_data=file_data_list, 
-            filename=report_filename, 
-            layout_name=layout_filename.replace('.docx', '')
-        )
-        
-        logger.info(f"[{request_id}] Sucesso! Relatório gerado com layout '{layout_filename}': {report_filename}")
-        
-        return jsonify({
-            "success": True, 
-            "report_path": report_filename 
+    # 2. Extração de Dados do Excel
+    if len(excel_paths) > 0:
+        logger.info(f"[{request_id}] Iniciando processamento Excel para {len(excel_paths)} arquivos...")
+        excel_results = excel_service.process_batch(excel_paths, layout_name=normalized_layout)
+        extracted_data_results.update(excel_results)
+    
+    # Preparando dados unificados para injeção no Word via Template
+    file_data_list = []
+    for file_path in file_paths:
+        name = os.path.basename(file_path)
+        # O get é importante para capturar textos de arquivos processados, ou strings vazias
+        text = extracted_data_results.get(name, "")
+        file_data_list.append({
+            "filename": name,
+            "text": text,
+            "path": file_path
         })
-    except Exception as e:
-        logger.error(f"[{request_id}] Erro crítico no processamento: {str(e)}", exc_info=True)
-        return jsonify({"success": False, "error": str(e)}), 500
+
+    # Geração do Relatório usando Layout
+    report_filename = f"Relatorio_{main_test.replace(' ', '_')}_{request_id}.docx"
+    
+    # O layout_name que passamos pro document_service terá a extensao .docx removida
+    output_path = doc_service.generate_report(
+        file_data=file_data_list, 
+        filename=report_filename, 
+        layout_name=layout_filename.replace('.docx', '')
+    )
+    
+    logger.info(f"[{request_id}] Sucesso! Relatório gerado com layout '{layout_filename}': {report_filename}")
+    
+    return jsonify({
+        "success": True, 
+        "report_path": report_filename 
+    })
 
 @app.route('/api/check_layout', methods=['POST'])
 def check_layout():
     """
     Verifica se o layout (template .docx) existe na pasta de layouts.
     """
-    try:
-        data = request.json or {}
-        tests_list = data.get('tests', [])
-        main_test = tests_list[0] if tests_list else "Padrao"
-        
-        layout_id_b64 = data.get('layout_id')
-        if layout_id_b64:
-            try:
-                # Limpeza e Padding
-                layout_id_b64 = layout_id_b64.replace(" ", "").replace("\n", "").replace("\r", "")
-                layout_id_b64 += "=" * ((4 - len(layout_id_b64) % 4) % 4)
-                
-                # Decodificação resiliente
-                decoded_bytes = base64.b64decode(layout_id_b64)
-                try:
-                    layout_filename = decoded_bytes.decode('utf-8')
-                except UnicodeDecodeError:
-                    layout_filename = decoded_bytes.decode('iso-8859-1')
-            except Exception as e:
-                logger.error(f"Erro ao decodificar base64 em check_layout ({layout_id_b64}): {str(e)}")
-                layout_filename = f"{main_test}.docx"
-        else:
-            layout_filename = f"{main_test}.docx"
-        
-        layout_path = os.path.join(LAYOUT_FOLDER, layout_filename)
-        
-        if not os.path.exists(layout_path):
-            return jsonify({
-                "success": False, 
-                "error": "não há layout cadastrado para este Ensaio"
-            }), 400
+    data = request.json or {}
+    tests_list = data.get('tests', [])
+    main_test = tests_list[0] if tests_list else "Padrao"
+    
+    layout_id_b64 = data.get('layout_id')
+    if layout_id_b64:
+        try:
+            # Limpeza e Padding
+            layout_id_b64 = layout_id_b64.replace(" ", "").replace("\n", "").replace("\r", "")
+            layout_id_b64 += "=" * ((4 - len(layout_id_b64) % 4) % 4)
             
-        return jsonify({"success": True})
-    except Exception as e:
-        logger.error(f"Erro ao checar layout: {str(e)}", exc_info=True)
-        return jsonify({"success": False, "error": str(e)}), 500
+            # Decodificação resiliente
+            decoded_bytes = base64.b64decode(layout_id_b64)
+            try:
+                layout_filename = decoded_bytes.decode('utf-8')
+            except UnicodeDecodeError:
+                layout_filename = decoded_bytes.decode('iso-8859-1')
+        except Exception as e:
+            logger.error(f"Erro ao decodificar base64 em check_layout ({layout_id_b64}): {str(e)}")
+            layout_filename = f"{main_test}.docx"
+    else:
+        layout_filename = f"{main_test}.docx"
+    
+    layout_path = os.path.join(LAYOUT_FOLDER, layout_filename)
+    
+    if not os.path.exists(layout_path):
+        return jsonify({
+            "success": False, 
+            "error": "não há layout cadastrado para este Ensaio"
+        }), 400
+        
+    return jsonify({"success": True})
 
 @app.route('/api/download/<filename>', methods=['GET'])
 def download_file(filename):
@@ -307,6 +320,15 @@ def get_user_info():
     picture = get_windows_profile_picture()
     return jsonify({"name": username, "picture": picture})
 
+# --- CLASSES DE EXCEÇÃO ---
+
+class AppException(Exception):
+    """Exceção base para erros controlados da aplicação."""
+    def __init__(self, message, error_code="SYS_01"):
+        super().__init__(message)
+        self.error_code = error_code
+        self.message = message
+
 # --- INTERFACE DESKTOP (PyWebView) ---
 
 class Api:
@@ -333,8 +355,9 @@ class Api:
                 return {"success": True}
             return {"success": False, "error": "Arquivo não encontrado."}
         except Exception as e:
-            logger.error(f"Erro ao abrir arquivo: {str(e)}")
-            return {"success": False, "error": str(e)}
+            # Relançamos para o Error Handler Global capturar nas rotas de API
+            # ou registramos aqui se for chamado internamente
+            raise e
 
     def getSettings(self):
         """Lê as configurações do arquivo JSON."""
@@ -351,7 +374,7 @@ class Api:
             return {"theme": "light"} # Default
         except Exception as e:
             logger.error(f"Erro ao ler configurações: {str(e)}")
-            return {"theme": "light"}
+            return {"theme": "light"} # Silencioso para não quebrar a UI
 
     def saveSettings(self, settings):
         """Salva as configurações no arquivo JSON."""
@@ -372,10 +395,9 @@ class Api:
                 except:
                     continue
                     
-            return {"success": True}
         except Exception as e:
-            logger.error(f"Erro ao salvar configurações: {str(e)}")
-            return {"success": False, "error": str(e)}
+            # Relançamos para garantir que a API retorne o erro SYS_01 unificado
+            raise e
 
 @app.route('/api/settings', methods=['GET', 'POST'])
 def handle_settings():
@@ -393,6 +415,9 @@ def run_flask():
     app.run(port=5000, debug=False, use_reloader=False)
 
 if __name__ == "__main__":
+    # 0. Inicia o agendador de limpeza em background (Gestão de Ciclo de Vida)
+    start_cleanup_scheduler()
+
     # 1. Inicia Flask em segundo plano
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
