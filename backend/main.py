@@ -3,9 +3,11 @@ import logging
 import threading
 import subprocess
 import base64
+import uuid
 from datetime import datetime
 import webview
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Response
+import json
 from flask_cors import CORS
 from utils.logger_config import setup_logger
 from utils.cleanup import clean_temp_directories
@@ -16,6 +18,8 @@ from services.pdfExtract_service import PDFExtractService
 from services.document_service import DocumentService
 from services.excel_service import ExcelService
 from werkzeug.utils import secure_filename
+from utils.security import validate_file_shield, SecurityException
+
 
 # Configuração inicial de Logs e Pastas
 logger = setup_logger()
@@ -58,6 +62,15 @@ def handle_global_exception(e):
     Garante que qualquer erro em rotas /api retorne uma interface amigável e segura,
     enquanto registra o erro técnico com severidade CRITICAL no log.
     """
+    # Se for uma falha de segurança detectada pelo nosso interceptor
+    if isinstance(e, SecurityException):
+        logger.warning(f"Tentativa de upload malicioso bloqueada: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error_code': 'SEC_01',
+            'message': str(e) # Passamos a mensagem de segurança explicitamente
+        }), 403
+
     if request.path.startswith('/api'):
         # Loga com severidade CRITICAL e inclui o traceback completo para depuração interna
         logger.critical(f"Falha crítica em {request.path}: {str(e)}", exc_info=True)
@@ -83,47 +96,155 @@ def serve_frontend():
 def health_check():
     return jsonify({"status": "ok", "message": "Backend Flask rodando!"})
 
+# Armazenamento em memória para estados dos jobs
+jobs = {}
+
+def run_pipeline_task(job_id, payload, file_paths, request_id, main_test):
+    """
+    Executa o pipeline completo em segundo plano e atualiza o dicionário 'jobs'.
+    """
+    try:
+        jobs[job_id] = {'status': 'processing', 'progress': 5, 'message': 'Iniciando pipeline...'}
+        
+        # 0. Decodificação do Layout
+        layout_id_b64 = payload.layout_id
+        if layout_id_b64:
+            try:
+                clean_b64 = layout_id_b64.replace(" ", "").replace("\n", "").replace("\r", "")
+                clean_b64 += "=" * ((4 - len(clean_b64) % 4) % 4)
+                decoded_bytes = base64.b64decode(clean_b64)
+                layout_filename = decoded_bytes.decode('utf-8', errors='ignore') or f"{main_test}.docx"
+                if not layout_filename.endswith('.docx'):
+                    layout_filename += '.docx'
+            except Exception as e:
+                logger.error(f"Erro ao decodificar base64 layout: {str(e)}")
+                layout_filename = f"{main_test}.docx"
+        else:
+            layout_filename = f"{main_test}.docx"
+            
+        jobs[job_id].update({'progress': 10, 'message': f'Usando layout: {layout_filename}'})
+
+        # 1. Triagem de Arquivos
+        layout_path = os.path.join(LAYOUT_FOLDER, layout_filename)
+        if not os.path.exists(layout_path):
+            jobs[job_id] = {'status': 'error', 'error': 'Layout não encontrado no servidor.'}
+            return
+
+        ocr_target = payload.ocr_target
+        ocr_paths = []
+        excel_paths = []
+        for p in file_paths:
+            filename = os.path.basename(p)
+            ext = p.split('.')[-1].lower()
+            if ext in ['xlsx', 'xls']:
+                excel_paths.append(p)
+            elif ocr_target and filename == secure_filename(ocr_target):
+                ocr_paths.append(p)
+        
+        normalized_layout = layout_filename.replace('.docx', '')
+        extracted_data_results = {}
+
+        # 2. Extração da Capa (Digital ou OCR)
+        if len(ocr_paths) > 0:
+            for p in ocr_paths:
+                filename = os.path.basename(p)
+                ext = p.split('.')[-1].lower()
+                jobs[job_id].update({'progress': 20, 'message': f'Analisando Capa: {filename}'})
+                
+                success_digital = False
+                if ext == 'pdf':
+                    digital_results = pdf_extract_service.extract_data(p)
+                    if "error" not in digital_results and any(v != "Não encontrado" for k, v in digital_results.items() if k != "full_text_raw"):
+                        extracted_data_results[filename] = digital_results
+                        success_digital = True
+                        logger.info(f"[{request_id}] Sucesso na extração DIGITAL para: {filename}. OCR ignorado.")
+                
+                if not success_digital:
+                    # Consome o generator do OCR
+                    gen = ocr_service.process_batch([p], layout_name=normalized_layout)
+                    while True:
+                        try:
+                            progress_info = next(gen)
+                            jobs[job_id].update({
+                                'progress': 20 + int(progress_info['progress'] * 0.45),
+                                'message': progress_info['message']
+                            })
+                        except StopIteration as e:
+                            extracted_data_results.update(e.value)
+                            break
+        
+        jobs[job_id].update({'progress': 65, 'message': 'Extração de capa concluída.'})
+
+        # 3. Extração de Dados do Excel
+        if len(excel_paths) > 0:
+            gen = excel_service.process_batch(excel_paths, layout_name=normalized_layout)
+            while True:
+                try:
+                    msg = next(gen)
+                    jobs[job_id].update({
+                        'progress': 65 + int((msg['progress'] - 70) * 1.0), # Ajuste escala
+                        'message': msg['message']
+                    })
+                except StopIteration as e:
+                    extracted_data_results.update(e.value)
+                    break
+        
+        jobs[job_id].update({'progress': 90, 'message': 'Gerando relatório Word...'})
+
+        # 4. Geração do Relatório
+        file_data_list = []
+        for file_path in file_paths:
+            name = os.path.basename(file_path)
+            text = extracted_data_results.get(name, "")
+            file_data_list.append({"filename": name, "text": text, "path": file_path})
+
+        report_filename = f"Relatorio_{main_test.replace(' ', '_')}_{request_id}.docx"
+        doc_service.generate_report(
+            file_data=file_data_list, 
+            filename=report_filename, 
+            layout_name=layout_filename.replace('.docx', '')
+        )
+        
+        # Conclusão
+        jobs[job_id] = {
+            'status': 'completed', 
+            'progress': 100, 
+            'message': 'Relatório gerado com sucesso!',
+            'report_path': report_filename
+        }
+        logger.info(f"[{request_id}] Pipeline finalizado com sucesso para Job ID: {job_id}")
+
+    except Exception as e:
+        logger.error(f"Erro crítico no Job {job_id}: {str(e)}", exc_info=True)
+        jobs[job_id] = {
+            'status': 'error', 
+            'error': str(e)
+        }
+
 @app.route('/api/process', methods=['POST'])
 def process_documents():
     """
-    Endpoint principal para processamento de OCR e geração de Word.
+    Endpoint assíncrono que inicia o processamento em background.
     """
-    # 0. Validação Rígida do Contrato (Pydantic)
     payload = validate_payload(RequestPayload)
-    
     request_id = datetime.now().strftime("%H%M%S")
-    logger.info(f"[{request_id}] Recebida nova requisição de processamento.")
+    job_id = str(uuid.uuid4())[:8] # Job ID curto para fácil acompanhamento
     
     if 'files' not in request.files:
-        logger.warning(f"[{request_id}] Falha: Nenhum arquivo enviado.")
         return jsonify({"success": False, "error": "Nenhum arquivo enviado"}), 400
     
     files = request.files.getlist('files')
-    sector = payload.sector
     tests_list = payload.tests
-    main_test = tests_list[0] if tests_list else "Padrao"
-    ocr_target = payload.ocr_target
+    main_test = str(tests_list[0]) if tests_list else "Padrao"
+    main_test = main_test.replace('[', '').replace(']', '').replace('"', '').replace("'", "")
 
-    # 1. Decodificação Resiliente do Layout (Base64)
-    layout_id_b64 = payload.layout_id
-    if layout_id_b64:
-        try:
-            # Limpeza e Padding manual para evitar erros de Base64
-            clean_b64 = layout_id_b64.replace(" ", "").replace("\n", "").replace("\r", "")
-            clean_b64 += "=" * ((4 - len(clean_b64) % 4) % 4)
-            
-            decoded_bytes = base64.b64decode(clean_b64)
-            layout_filename = decoded_bytes.decode('utf-8', errors='ignore') or f"{main_test}.docx"
-            if not layout_filename.endswith('.docx'):
-                layout_filename += '.docx'
-        except Exception as e:
-            logger.error(f"Erro ao decodificar base64 layout: {str(e)}")
-            layout_filename = f"{main_test}.docx"
-    else:
-        layout_filename = f"{main_test}.docx"
-        
-    logger.info(f"[{request_id}] Setor: {sector} | Teste Principal: {main_test} | Layout Arquivo: {layout_filename} | Arquivos: {len(files)}")
-    
+    # Validação Blindada de Segurança (MIME Sanitization)
+    for file in files:
+        if file.filename == '': continue
+        # Intercepta o Buffer em Bytes na subida primária
+        validate_file_shield(file)
+
+    # Salva arquivos fisicamente antes de iniciar a thread
     file_paths = []
     for file in files:
         if file.filename == '': continue
@@ -131,104 +252,31 @@ def process_documents():
         file_path = os.path.join(UPLOAD_FOLDER, filename)
         file.save(file_path)
         file_paths.append(file_path)
-        logger.info(f"[{request_id}] Arquivo salvo: {filename}")
 
-    # Verificação do Arquivo de Layout antes de iniciar o OCR
-    layout_path = os.path.join(LAYOUT_FOLDER, layout_filename)
-    if not os.path.exists(layout_path):
-        logger.warning(f"[{request_id}] Falha: Layout '{layout_filename}' não encontrado.")
-        return jsonify({
-            "success": False, 
-            "error": "layout de relatório não registrado"
-        }), 400
-
-    # Filtro Inteligente de Arquivos: Separa Imagens/PDF de Excel
-    # REGRA: OCR apenas para o arquivo de capa (marcado pelo frontend via 'ocr_target')
-    ocr_target = request.form.get('ocr_target')
-    ocr_paths = []
-    excel_paths = []
-    
-    for p in file_paths:
-        filename = os.path.basename(p)
-        ext = p.split('.')[-1].lower()
-        
-        # 1. Arquivos Excel vão para extração de dados
-        if ext in ['xlsx', 'xls']:
-            excel_paths.append(p)
-        
-        # 2. Somente o arquivo de capa (especificado no ocr_target) vai para OCR
-        elif ocr_target and filename == secure_filename(ocr_target):
-            ocr_paths.append(p)
-            logger.info(f"[{request_id}] Arquivo identificado como alvo de OCR: {filename}")
-        
-        # Se não for excel nem capa, o arquivo é ignorado no OCR (ex: fotos de teste)
-        else:
-            logger.info(f"[{request_id}] Arquivo ignorado no OCR (não é alvo): {filename}")
-
-    # Execução do OCR informando o layout para cortes inteligentes
-    normalized_layout = layout_filename.replace('.docx', '')
-            
-    # Dicionário Geral que armazenará todas as respostas extraídas de todos os arquivos
-    extracted_data_results = {}
-    
-    # 1. Extração da Capa (Inteligência de Chaveamento: Digital vs OCR)
-    if len(ocr_paths) > 0:
-        for p in ocr_paths:
-            filename = os.path.basename(p)
-            ext = p.split('.')[-1].lower()
-            success_digital = False
-            
-            # Tenta extração digital se for PDF
-            if ext == 'pdf':
-                logger.info(f"[{request_id}] Iniciando tentativa de extração DIGITAL para: {filename}")
-                digital_results = pdf_extract_service.extract_data(p)
-                
-                # Verifica se a extração digital obteve campos válidos (além do raw_text e erro)
-                if "error" not in digital_results and any(v != "Não encontrado" for k, v in digital_results.items() if k != "full_text_raw"):
-                    extracted_data_results[filename] = digital_results
-                    success_digital = True
-                    logger.info(f"[{request_id}] Sucesso na extração DIGITAL para: {filename}")
-            
-            # Se não for PDF ou se a extração digital falhar/não encontrar campos
-            if not success_digital:
-                logger.info(f"[{request_id}] Iniciando processamento OCR para: {filename} (Digital falhou ou não aplicável)")
-                ocr_results = ocr_service.process_batch([p], layout_name=normalized_layout)
-                extracted_data_results.update(ocr_results)
-        
-    # 2. Extração de Dados do Excel
-    if len(excel_paths) > 0:
-        logger.info(f"[{request_id}] Iniciando processamento Excel para {len(excel_paths)} arquivos...")
-        excel_results = excel_service.process_batch(excel_paths, layout_name=normalized_layout)
-        extracted_data_results.update(excel_results)
-    
-    # Preparando dados unificados para injeção no Word via Template
-    file_data_list = []
-    for file_path in file_paths:
-        name = os.path.basename(file_path)
-        # O get é importante para capturar textos de arquivos processados, ou strings vazias
-        text = extracted_data_results.get(name, "")
-        file_data_list.append({
-            "filename": name,
-            "text": text,
-            "path": file_path
-        })
-
-    # Geração do Relatório usando Layout
-    report_filename = f"Relatorio_{main_test.replace(' ', '_')}_{request_id}.docx"
-    
-    # O layout_name que passamos pro document_service terá a extensao .docx removida
-    output_path = doc_service.generate_report(
-        file_data=file_data_list, 
-        filename=report_filename, 
-        layout_name=layout_filename.replace('.docx', '')
+    # Inicia processamento em thread separada
+    thread = threading.Thread(
+        target=run_pipeline_task, 
+        args=(job_id, payload, file_paths, request_id, main_test)
     )
-    
-    logger.info(f"[{request_id}] Sucesso! Relatório gerado com layout '{layout_filename}': {report_filename}")
-    
+    thread.start()
+
+    logger.info(f"[{request_id}] Job {job_id} enfileirado com sucesso.")
     return jsonify({
         "success": True, 
-        "report_path": report_filename 
+        "job_id": job_id,
+        "status": "queued"
     })
+
+@app.route('/api/status/<job_id>', methods=['GET'])
+def get_job_status(job_id):
+    """
+    Consulta o status de um processamento em background.
+    """
+    job_info = jobs.get(job_id)
+    if not job_info:
+        return jsonify({"success": False, "error": "Job ID não encontrado"}), 404
+        
+    return jsonify(job_info)
 
 @app.route('/api/check_layout', methods=['POST'])
 def check_layout():

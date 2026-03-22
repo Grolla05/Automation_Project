@@ -71,6 +71,10 @@ class PDFExtractService:
                     cleaned_value = self._clean_text(value) if value else "Não encontrado"
                     final_mapped_results[doc_tag] = cleaned_value
                     
+                # Log de resumo para depuração
+                found_fields = [k for k, v in final_mapped_results.items() if v != "Não encontrado"]
+                logger.info(f"[PDF] Extração digital concluída: {len(found_fields)} de {len(self.field_map)} campos identificados.")
+                
                 return final_mapped_results
 
         except Exception as e:

@@ -22,25 +22,23 @@ const LoadingScreen = () => {
     return <Navigate to="/upload" replace />;
   }
 
-  // ── Progress Intervals ─────────────────────────────────────────────────────
-  const PROGRESS_INTERVALS = [
-    { threshold: 30, text: t('loading.ocr_processing') },
-    { threshold: 60, text: t('loading.extracting_data') },
-    { threshold: 85, text: t('loading.formatting_word') },
-  ];
 
   // ── OCR Processing ─────────────────────────────────────────────────────────
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     isMountedRef.current = true;
-    let timer: ReturnType<typeof setInterval>;
 
     const processBackend = async () => {
       try {
         const result = await api.processImages(
           session.sector,
           session.tests,
-          session.files
+          session.files,
+          (progress, message) => {
+            if (isMountedRef.current) {
+              setProgress(progress);
+              setStatus(message);
+            }
+          }
         );
 
         if (isMountedRef.current) {
@@ -59,24 +57,10 @@ const LoadingScreen = () => {
       }
     };
 
-    const runFakeProgress = () => {
-      timer = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 90) return 90;
-          const next = prev + Math.random() * 8;
-          const currentStatus = PROGRESS_INTERVALS.find((i) => next <= i.threshold);
-          if (currentStatus) setStatus(currentStatus.text);
-          return next;
-        });
-      }, 500);
-    };
-
-    runFakeProgress();
     processBackend();
 
     return () => {
       isMountedRef.current = false;
-      clearInterval(timer);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]);

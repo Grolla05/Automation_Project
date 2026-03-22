@@ -117,19 +117,17 @@ class OCRService:
     def process_pdf(self, file_path, layout_name=None):
         """
         Converte cada página de um PDF em imagem e realiza o OCR.
-        Lógica Híbrida: Busca âncoras em áreas estáticas e extrai blocos dinamicamente.
+        Yields progress and returns full text.
         """
         try:
             logger.info(f"Convertendo PDF para imagens: {file_path}")
+            yield {"progress": 10, "message": f"Convertendo {os.path.basename(file_path)}"}
+                
             pages = convert_from_path(file_path, poppler_path=self.poppler_path)
             
             full_text = []
             custom_config = r'--oem 3 --psm 6'
             
-            # Definição das Regiões de Busca Estática para as Âncoras (%)
-            # "roi": [limite_esquerda, limite_superior, limite_direita, limite_inferior] em porcentagem relativa à página
-            # "patterns": Lista de palavras-chave para localizar a âncora (ex: "Data Recebimento" pode ser "Data" + "Recebimento" em OCR)
-            # O texto da âncora (ex: "Data de recebimento") é buscado nestas áreas fixas
             ANCHOR_SEARCH_AREAS = {
                 "Data Recebimento":    {"roi": [0.05, 0.00, 0.35, 0.15], "patterns": ["Data", "recebimento"]},
                 "Liberada":            {"roi": [0.25, 0.00, 0.55, 0.15], "patterns": ["Liberada"]},
@@ -144,65 +142,43 @@ class OCRService:
                 "Solicitante":         {"roi": [0.35, 0.52, 0.95, 0.65], "patterns": ["Solicitante"]},
                 "Código SAP":          {"roi": [0.05, 0.62, 0.55, 0.75], "patterns": ["Código", "SAP"]},
                 "Fabricante":          {"roi": [0.45, 0.62, 0.95, 0.75], "patterns": ["Fabricante"]},
-                "Código SAP":          {"roi": [0.45, 0.62, 0.95, 0.75], "patterns": ["Código", "SAP"]},
                 "Teste":               {"roi": [0.05, 0.72, 0.95, 0.85], "patterns": ["Teste"]},
             }
 
             for i, page in enumerate(pages):
+                yield {"progress": 20 + int((i/len(pages))*40), "message": f"OCR Página {i+1}/{len(pages)}"}
+                
                 width, height = page.size
                 page_results = [f"--- [Página {i+1}] ---"]
-                
-                # Listas para coletar as coordenadas para o debug visual
                 anchor_debug_areas = []
                 value_debug_areas = []
 
                 if i == 0:
-                    logger.info(f"[OCR] Iniciando extração dinâmica por âncoras na página {i+1}")
-                    
-                    # 1. Obtém dados de OCR da página uma única vez para localizar as âncoras
                     ocr_data = pytesseract.image_to_data(page, lang='por+eng', output_type=Output.DICT)
-                    
                     for label, config in ANCHOR_SEARCH_AREAS.items():
-                        # REGISTRO PARA DEBUG: Área de busca estática (Azul)
                         c = config["roi"]
                         anchor_debug_areas.append((int(c[0]*width), int(c[1]*height), int(c[2]*width), int(c[3]*height)))
-
-                        # Busca a posição exata da âncora dentro da página
                         anchor_pos = self._find_anchor(ocr_data, config["patterns"])
-                        
                         if anchor_pos:
                             x, y, w, h = anchor_pos['x'], anchor_pos['y'], anchor_pos['w'], anchor_pos['h']
-                            
-                            # Bloco dinâmico: Começa onde a âncora termina
                             dynamic_value_roi = (x + w + 5, y - 10, x + w + 500, y + h + 10)
-                            
-                            # REGISTRO PARA DEBUG: Área de valor dinâmico (Verde)
                             value_debug_areas.append(dynamic_value_roi)
-
-                            # Recorta e processa o valor
                             value_img = page.crop(dynamic_value_roi)
                             value_text = pytesseract.image_to_string(self._preprocess_image(value_img), lang='por+eng', config=r'--oem 3 --psm 7').strip()
-                            
                             if value_text:
                                 page_results.append(f"{label}: {value_text}")
-                                logger.info(f"   > {label} extraído via âncora dinâmica.")
                         else:
-                            # FALLBACK: Se não achar a âncora, tenta ler a ROI estática original como backup
                             coords = config["roi"]
                             left, top, right, bottom = int(coords[0]*width), int(coords[1]*height), int(coords[2]*width), int(coords[3]*height)
                             fallback_img = page.crop((left, top, right, bottom))
                             text = pytesseract.image_to_string(self._preprocess_image(fallback_img), lang='por+eng', config=custom_config).strip()
                             if text:
                                 page_results.append(f"{label} (Estático): {text}")
-
-                    # SALVA O DEBUG VISUAL DO PDF (Mapeamento de Âncoras e Blocos)
                     self._save_debug_pdf_regions(page, file_path, i+1, anchor_debug_areas, value_debug_areas)
 
-                # Texto total como segurança
                 full_page_text = pytesseract.image_to_string(self._preprocess_image(page), lang='por+eng', config=r'--oem 3 --psm 11')
                 page_results.append("\n[Texto Completo]:")
                 page_results.append(full_page_text.strip())
-                
                 full_text.append("\n".join(page_results))
                 
             return "\n\n".join(full_text)
@@ -213,48 +189,32 @@ class OCRService:
     def process_batch(self, file_paths, layout_name=None):
         """
         Método Principal: Processa uma lista de caminhos de arquivos.
-        
-        Args:
-            file_paths (list): Lista de strings com os caminhos completos.
-            layout_name (str): Tipo do teste/layout para filtros visuais.
+        Yields progress messages.
         """
         if not file_paths:
-            logger.info("Nenhum arquivo enviado para o lote de OCR.")
             return {}
 
-        logger.info(f"Iniciando processamento em lote de {len(file_paths)} arquivos específicos para extração.")
         batch_results = {}
-
-        for path in file_paths:
+        for i, path in enumerate(file_paths):
             file_name = os.path.basename(path)
-            logger.info(f">>> Processando: {file_name}")
+            yield {"progress": 10 + int((i/len(file_paths))*80), "message": f"Iniciando OCR: {file_name}"}
             
             try:
-                # Verifica se o arquivo existe
                 if not os.path.exists(path):
-                    logger.error(f"Arquivo não encontrado: {path}")
-                    batch_results[file_name] = "ERRO: Arquivo físico não encontrado no servidor."
+                    batch_results[file_name] = "ERRO: Arquivo não encontrado."
                     continue
 
-                # Identifica extensão
                 ext = os.path.splitext(path)[1].lower()
-                
-                # Processamento baseado no tipo de arquivo
                 if ext == '.pdf':
-                    extracted_text = self.process_pdf(path, layout_name)
+                    # Usamos yield from para repassar o progresso do PDF
+                    # Para pegar o retorno, usamos a sintaxe do Python 3.3+
+                    extracted_text = yield from self.process_pdf(path, layout_name)
                 else:
-                    logger.warning(f"Extensão {ext} não é suportada diretamente pelo OCRService.")
                     extracted_text = f"ERRO: Formato {ext} não suportado."
 
                 batch_results[file_name] = extracted_text
-                logger.info(f"--- Sucesso ao processar: {file_name}")
-                ## Retirar depois dos testes para deixar o arquivo de log mais coeso, organizado e agradável de se analisar
-                logger.info(f"--- Dados extraídos do arquivo [{file_name}]:\n{extracted_text}\n{'='*50}")
-
             except Exception as e:
-                # Captura erro por arquivo sem interromper o lote
                 logger.error(f"Erro ao processar o arquivo {file_name}: {str(e)}")
-                batch_results[file_name] = f"ERRO DURANTE OCR: {str(e)}"
+                batch_results[file_name] = f"ERRO: {str(e)}"
 
-        logger.info("Processamento em lote finalizado.")
         return batch_results

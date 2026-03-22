@@ -18,7 +18,13 @@ Imagine que o backend é um **assistente de laboratório digital**. Ele recebe p
 
 ## 🏗️ Arquitetura e Organização (Para Técnicos)
 
-O sistema foi desenhado seguindo princípios de **modularidade** e **separação de responsabilidades**, facilitando a manutenção e adição de novos tipos de ensaios.
+O sistema foi redesenhado para suportar **processamento em background (Async)**, garantindo que a interface do usuário nunca trave durante tarefas pesadas de OCR ou análise de dados.
+
+### 🔄 Fluxo Assíncrono de Jobs
+
+1. **POST `/api/process`**: Recebe os arquivos, valida a segurança e enfileira um **Job ID** único, retornando imediatamente para o frontend.
+2. **Background Thread**: Uma thread separada assume o processamento (Extração -> OCR -> Excel -> Word).
+3. **GET `/api/status/<job_id>`**: O frontend monitora o progresso (0-100%) e o status (queued, processing, completed, error).
 
 ### 📂 Mapa de Pastas
 
@@ -39,15 +45,25 @@ O sistema foi desenhado seguindo princípios de **modularidade** e **separação
 
 ---
 
-## 🚀 Os 3 Pilares de Processamento
+## 🛡️ Segurança Blindada (MIME Sanitization)
 
-O backend decide automaticamente qual pilar usar baseado na extensão do arquivo e configuração do frontend:
+Diferente de sistemas comuns que olham apenas a extensão do arquivo, nosso backend possui um **interceptador de subida primária**:
+
+1. **Header Peek**: Lê os primeiros 2048 bytes do buffer do arquivo recebido sem corromper o stream.
+2. **Magic Numbers**: Usa `python-magic` (libmagic) para identificar o tipo real do arquivo (assinatura binária).
+3. **Bloqueio Imediato**: Se um usuário tentar subir um executável (`MZ header`) oculto em um PDF, o sistema estoura uma `SecurityException` e retorna **HTTP 403**.
+4. **Validação Cruzada**: Garante que o conteúdo (MIME) condiz com a extensão declarada pelo usuário.
+
+---
+
+## 🚀 Os 4 Pilares de Processamento
 
 ### 1. Pilar OCR (Imagens e PDFs Escaneados)
 
 Ideal para fotos de telas de equipamentos ou documentos grampeados.
 **Lógica de Âncoras**: O sistema não lê a página inteira ao léu. Ele procura por palavras-chave (ex: "AWB" ou "Data") e, ao encontrar, lê exatamente a área ao lado dela.
-**Pré-processamento**: A imagem é convertida para escala de cinza e o contraste é aumentado dinamicamente para garantir que o Tesseract não confunda um "8" com "B".
+**Pré-processamento**: A imagem é convertida para escala de cinza e o contraste é aumentado dinamicamente para garantir que o Tesseract não confunda um "8" com "B". Usa **Tesseract OCR** com pré-processamento de imagem (Escala de cinza e Contraste).
+**Lógica de Âncoras**: Busca palavras-chave e lê coordenadas relativas (ROI).
 
 ### 2. Pilar PDF Digital (Extração Direta)
 
@@ -71,41 +87,53 @@ A mágica final acontece no `DocumentService`. Ele funciona como um sistema de "
 2. **Mapeamento Unificado**: O backend cria um dicionário gigante com todas as descobertas dos 3 pilares acima.
 3. **Injeção e Grifo**: O sistema percorre o Word, substitui as tags pelos valores reais e aplica um **grifo amarelo**. Isso permite que o engenheiro revise rapidamente o que foi preenchido de forma automática.
 4. **Inserção de Imagens**: Se houver tags de imagem, o sistema redimensiona as fotos de upload e as insere diretamente no corpo do documento.
+  **AseExcelParser**: Script especializado que lê frequências, picos e curvas de ensaios específicos.
+  **Fallback Factory**: Se o layout não tiver um parser customizado, utiliza o processamento genérico.
 
 ---
 
-## 🧹 Manutenção e Ciclo de Vida
+### 4. Pilar Document (Mala Direta Turbinada)
 
-O backend é autossuficiente em sua limpeza:
-
-**Cleanup Scheduller**: A cada hora, uma tarefa em background verifica arquivos antigos.
-**Log Rotation**: Mantemos apenas os últimos 5 arquivos de log (50MB no total), garantindo histórico de erros sem comprometer o armazenamento.
-**Segurança**: Todas as entradas são validadas via Pydantic (`RequestPayload`) para evitar ataques de injeção ou travamentos por dados malformados.
+Injeção de dados em templates Word com **preservação de estilos**.
+**Grifos Dinâmicos**: Marca em amarelo campos preenchidos automaticamente para revisão fácil do engenheiro.
 
 ---
 
-## 🛠️ Configuração Inicial
+## 🧹 Infraestrutura e Manutenção
+
+*   **Cleanup Scheduler**: Tarefa em background que roda a cada 30 minutos limpando `/uploads` e `/exports`, mantendo o sistema leve.
+*   **Integração Windows**:
+    *   Busca nome e foto de perfil do usuário logado via **PowerShell/Registry**.
+    *   Comando `os.startfile` para abrir relatórios diretamente no Word físico após processamento.
+*   **Logs Inteligentes**: Logs rotativos de 10MB que são comprimidos em `.gz` para economizar espaço em disco.
+
+---
+
+## 🛠️ Instalação e Execução
 
 ### Requisitos Técnicos
 
-**Python 3.10+**
-**Tesseract OCR**: Instalado no Windows (Caminho padrão: `C:\Program Files\Tesseract-OCR\tesseract.exe`).
-**Poppler**: Necessário para converter PDFs em imagens para o OCR (Caminho configurado no `ocr_service.py`).
+  **Python 3.10+** (Recomendado ambiente virtual `venv`)
+  **Tesseract OCR** instalado no Windows.
+  **Poppler** para conversão de PDF.
 
 ### Comandos
 
 ```bash
-# 1. Instalar dependências (Pillow, Docx, Pandas, Flask, PyWebView)
+# 1. Instalar dependências (Incluindo proteção de segurança)
 pip install -r requirements.txt
 
-# 2. Executar a aplicação (Inicia o Flask + Janela Desktop)
+# 2. Iniciar o Hub de Automação
 python main.py
 ```
 
 ---
 
-## ❓ Solução de Problemas (FAQ)
+## ❓ FAQ Técnico
 
-**"Não preencheu o dado X"**: Verifique se a Regex em `utils/document_tags.py` ou o mapeamento em `services/pdfExtract_service.py` contém o rótulo exato que aparece no seu arquivo.
-**"Erro de Tesseract não encontrado"**: Certifique-se de que o Tesseract está instalado no caminho `C:\Program Files\Tesseract-OCR\tesseract.exe` ou atualize a variável `self.tesseract_cmd` no `ocr_service.py`.
-**"Layout não encontrado"**: Verifique se o nome do arquivo `.docx` na pasta `storage/layout` é exatamente igual ao nome do envio (ignorando o sufixo `_layout` se houver).
+  **"Não preencheu o dado X"**: Verifique se a Regex em `utils/document_tags.py` ou o mapeamento em `services/pdfExtract_service.py` contém o rótulo exato que aparece no seu arquivo.
+  **"Erro de Tesseract não encontrado"**: Certifique-se de que o Tesseract está instalado no caminho `C:\Program Files\Tesseract-OCR\tesseract.exe` ou atualize a variável `self.tesseract_cmd` no `ocr_service.py`.
+  **"Layout não encontrado"**: Verifique se o nome do arquivo `.docx` na pasta `storage/layout` é exatamente igual ao nome do envio (ignorando o sufixo `_layout` se houver).
+  **"Erro SEC_01"**: O arquivo foi bloqueado pelo interceptador de segurança (possível arquivo binário malicioso ou extensão incorreta).
+  **"Erro SYS_01"**: Erro genérico tratado pelo Global Exception Handler; verifique o log `.log` mais recente em `/logs` para o traceback completo.
+  **"Status 404 no Job"**: O ID do job é mantido em memória e pode ser perdido após reiniciar o backend.

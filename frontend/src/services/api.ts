@@ -97,7 +97,8 @@ const apiCore = {
   processImages: async (
     sector: string,
     tests: string[],
-    files: File[]
+    files: File[],
+    onProgress?: (progress: number, message: string) => void
   ): Promise<ProcessResult> => {
     const formData = new FormData();
     formData.append("sector", sector);
@@ -105,7 +106,6 @@ const apiCore = {
 
     const mainTest = tests[0] ?? "Padrao";
     const layoutId = getLayoutIdForTest(mainTest);
-
     formData.append("layout_id", layoutId);
     
     files.forEach((file) => {
@@ -115,42 +115,52 @@ const apiCore = {
       }
     });
 
-    console.log(`[API] Iniciando processamento de ${files.length} arquivos para o setor ${sector}.`, {
-      tests,
-      mainTest,
-      layoutId
-    });
+    // 1. Envia a requisição inicial e recebe o job_id
+    const startResponse = await axiosInstance.post<{ job_id: string; status: string }>(
+      "/process", 
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
 
-    const promise = axiosInstance.post<{
-      success: boolean;
-      report_path: string;
-      error?: string;
-    }>("/process", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const { job_id } = startResponse.data;
+    if (!job_id) throw new Error("Falha ao iniciar processamento (Job ID não recebido).");
 
-    toast.promise(promise, {
-      loading: 'Processando documentos e extraindo dados...',
-      success: (response) => {
-        console.log("[API] Sucesso no processamento:", response.data);
-        return 'Processamento concluído com sucesso!';
-      },
-      error: (err) => {
-        console.error("[API] Erro no processamento:", {
-          message: err.message,
-          response: err.response?.data,
-          status: err.response?.status
-        });
-        return err.response?.data?.error || 'Erro ao processar arquivos.';
-      },
-    });
+    // 2. Inicia o Polling de status
+    while (true) {
+      try {
+        const statusResponse = await axiosInstance.get<{
+          status: string;
+          progress: number;
+          message: string;
+          report_path?: string;
+          error?: string;
+        }>(`/status/${job_id}`);
 
-    const { data } = await promise;
+        const data = statusResponse.data;
 
-    return {
-      success: data.success,
-      path: data.report_path,
-    };
+        if (onProgress) {
+          onProgress(data.progress || 0, data.message || "Processando...");
+        }
+
+        if (data.status === 'completed') {
+          return {
+            success: true,
+            path: data.report_path || "",
+          };
+        }
+
+        if (data.status === 'error') {
+          throw new Error(data.error || "Erro desconhecido no processamento.");
+        }
+
+        // Espera 1.5s antes da próxima consulta para evitar sobrecarga
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+      } catch (error) {
+        console.error("Erro no polling de status:", error);
+        throw error;
+      }
+    }
   },
 
   downloadReport: async (filename: string): Promise<void> => {
