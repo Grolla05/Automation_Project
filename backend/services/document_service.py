@@ -85,11 +85,11 @@ class DocumentService:
                         tags_texto.update(get_text_tags(nome_arq, text_ext, normalized_layout, sufixo=""))
                     
                 # E associa a imagem física àquela tag pra hora da injeção
-                for timg in get_image_tags(sufixo=sufixo):
+                for timg in get_image_tags(normalized_layout, sufixo=sufixo):
                     tags_imagem_list.append({"tag": timg, "caminho": caminho})
                 
                 if idx == 0:
-                    for timg in get_image_tags(sufixo=""):
+                    for timg in get_image_tags(normalized_layout, sufixo=""):
                         tags_imagem_list.append({"tag": timg, "caminho": caminho})
             
             # Regex para dividir a string preservando as tags (ex: 'Algo [TAG] a mais' -> ['Algo ', '[TAG]', ' a mais'])

@@ -133,8 +133,8 @@ const WelcomeScreen = () => {
               </Select.Trigger>
 
               <Select.Portal>
-                <Select.Content className="z-[200] overflow-hidden bg-white rounded-xl shadow-xl border border-apple-gray animate-in fade-in zoom-in-95 duration-200 dark:bg-[#3e3e3e] dark:border-white/10">
-                  <Select.ScrollUpButton className="flex items-center justify-center h-[25px] bg-white text-apple-secondary cursor-default dark:bg-[#3e3e3e]">
+                <Select.Content className="z-[200] overflow-hidden bg-white rounded-xl shadow-xl border border-apple-gray animate-in fade-in zoom-in-95 duration-200">
+                  <Select.ScrollUpButton className="flex items-center justify-center h-[25px] bg-white text-apple-secondary cursor-default">
                     <ChevronDown className="rotate-180" size={16} />
                   </Select.ScrollUpButton>
                   <Select.Viewport className="p-2">
@@ -142,7 +142,7 @@ const WelcomeScreen = () => {
                       <Select.Item
                         key={s}
                         value={s}
-                        className="relative flex items-center px-8 py-3 text-sm font-medium text-[#1d1d1f] rounded-lg hover:bg-apple-bg dark:text-[#f5f5f7] dark:hover:bg-apple-blue/20 hover:text-apple-blue cursor-pointer outline-none focus:bg-apple-blue/10 focus:text-apple-blue transition-colors"
+                        className="relative flex items-center px-8 py-3 text-sm font-medium text-[#1d1d1f] rounded-lg hover:bg-apple-bg hover:text-apple-blue cursor-pointer outline-none focus:bg-apple-blue/10 focus:text-apple-blue transition-colors"
                       >
                         <Select.ItemText>{s}</Select.ItemText>
                         <Select.ItemIndicator className="absolute left-2 flex items-center justify-center">
@@ -151,7 +151,7 @@ const WelcomeScreen = () => {
                       </Select.Item>
                     ))}
                   </Select.Viewport>
-                  <Select.ScrollDownButton className="flex items-center justify-center h-[25px] bg-white dark:bg-apple-dark-gray text-apple-secondary cursor-default">
+                  <Select.ScrollDownButton className="flex items-center justify-center h-[25px] bg-white text-apple-secondary cursor-default">
                     <ChevronDown size={16} />
                   </Select.ScrollDownButton>
                 </Select.Content>
@@ -183,13 +183,13 @@ const WelcomeScreen = () => {
                   </Select.Trigger>
 
                   <Select.Portal>
-                    <Select.Content className="z-[200] overflow-hidden bg-white dark:bg-apple-dark-gray rounded-xl shadow-xl border border-apple-gray dark:border-white/10 animate-in fade-in zoom-in-95 duration-200">
+                    <Select.Content className="z-[200] overflow-hidden bg-white rounded-xl shadow-xl border border-apple-gray animate-in fade-in zoom-in-95 duration-200">
                       <Select.Viewport className="p-2">
                         {availableTestTypes.map((t) => (
                           <Select.Item
                             key={t}
                             value={t}
-                            className="relative flex items-center px-8 py-3 text-sm font-medium text-apple-text dark:text-apple-white rounded-lg hover:bg-apple-bg dark:hover:bg-apple-blue/20 hover:text-apple-blue cursor-pointer outline-none focus:bg-apple-blue/10 focus:text-apple-blue transition-colors"
+                            className="relative flex items-center px-8 py-3 text-sm font-medium text-apple-text rounded-lg hover:text-apple-blue cursor-pointer outline-none focus:bg-apple-blue/10 focus:text-apple-blue transition-colors"
                           >
                             <Select.ItemText>{t}</Select.ItemText>
                             <Select.ItemIndicator className="absolute left-2 flex items-center justify-center">
@@ -250,11 +250,11 @@ const WelcomeScreen = () => {
                               w-full flex items-center justify-between px-5 py-3.5 rounded-xl border-2 transition-all duration-300 relative overflow-hidden text-left
                               ${isDisabled
                                 ? 'opacity-40 cursor-not-allowed border-apple-gray bg-apple-gray/10 text-apple-secondary grayscale'
-                                : 'cursor-pointer hover:border-apple-gray hover:bg-apple-white dark:hover:bg-apple-blue/10 hover:shadow-sm'}
+                                : 'cursor-pointer hover:border-apple-gray hover:bg-apple-white hover:shadow-sm'}
                               ${isChecked && !isDisabled
-                                ? 'border-apple-blue bg-apple-blue/5 dark:bg-apple-blue/20 text-apple-blue shadow-[0_8px_16px_rgba(0,113,227,0.12)]'
+                                ? 'border-apple-blue bg-apple-blue/5 text-apple-blue shadow-[0_8px_16px_rgba(0,113,227,0.12)]'
                                 : !isDisabled
-                                  ? 'border-transparent bg-apple-bg text-apple-text dark:text-apple-white'
+                                  ? 'border-transparent bg-apple-bg text-apple-text'
                                   : ''}
                             `}
                           >

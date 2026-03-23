@@ -5,12 +5,13 @@ import shutil
 import queue
 from datetime import datetime
 from logging.handlers import RotatingFileHandler, QueueHandler, QueueListener
+from config_loader import config
 
 # --- CONFIGURAÇÕES DE ARQUITETURA ---
-LOG_DIR = 'logs'
+LOG_DIR = config.LOGS_FOLDER
 MAX_BYTES = 10 * 1024 * 1024  # 10MB
 BACKUP_COUNT = 5
-CONSOLE_LEVEL = logging.INFO    # Console limpo
+CONSOLE_LEVEL = getattr(logging, config.LOG_LEVEL, logging.INFO)
 FILE_LEVEL = logging.DEBUG      # Volume massivo para o disco
 
 def namer(name):

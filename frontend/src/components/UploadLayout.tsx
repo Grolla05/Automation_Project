@@ -10,6 +10,7 @@ import Button from './ui/Button';
 import Card from './ui/Card';
 import { api } from '../services/api';
 import { createUploadSchema, type UploadFormData } from '../schemas/uploadSchema';
+import { REQUIRED_IMAGE_FILES } from '../lib/data';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,7 +42,20 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
 
   const isTeste2 = tests?.includes('TESTE2');
   const isASE = testType === 'ASE';
-  const REQUIRED_FILES_TESTE2 = ['image_test2.1', 'image_test2.2'];
+  
+  // Obtém mapa de requisitos de imagem baseado nos ensaios selecionados
+  const getRequiredFilesMap = (): Record<string, string> => {
+    let map: Record<string, string> = {};
+    tests?.forEach(test => {
+      if (REQUIRED_IMAGE_FILES[test]) {
+        map = { ...map, ...REQUIRED_IMAGE_FILES[test] };
+      }
+    });
+    return map;
+  };
+
+  const dynamicRequiredMap = getRequiredFilesMap();
+  const dynamicRequiredNames = Object.keys(dynamicRequiredMap);
 
   const schema = createUploadSchema({
     tests: tests ?? [],
@@ -82,9 +96,9 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
     // Requisitos básicos para todos
     if (!hasPDF || !hasImage || !hasExcelFile) return false;
 
-    // Requisitos específicos para TESTE2
-    if (isTeste2) {
-      const allTeste2Met = REQUIRED_FILES_TESTE2.every(reqName => 
+    // Requisitos específicos dinâmicos
+    if (dynamicRequiredNames.length > 0) {
+      const allMet = dynamicRequiredNames.every(reqName => 
         files.some(f => {
           const nameWithoutExt = f.name.split('.').slice(0, -1).join('.');
           return (
@@ -93,7 +107,7 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
           );
         })
       );
-      if (!allTeste2Met) return false;
+      if (!allMet) return false;
     }
 
     return true;
@@ -109,8 +123,8 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
     if (!hasImage) errors.push('Pelo menos uma Imagem Análoga (.png/jpeg) é obrigatória.');
     if (!hasExcelFile) errors.push('A Planilha de Registro (.xlsx/xls) é obrigatória.');
 
-    if (isTeste2) {
-      REQUIRED_FILES_TESTE2.forEach(reqName => {
+    if (dynamicRequiredNames.length > 0) {
+      dynamicRequiredNames.forEach(reqName => {
         const met = files.some(f => {
           const nameWithoutExt = f.name.split('.').slice(0, -1).join('.');
           return (
@@ -118,11 +132,37 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
             f.name.toLowerCase().startsWith(reqName.toLowerCase())
           );
         });
-        if (!met) errors.push(`Arquivo obrigatório do TESTE2 ausente: ${reqName}`);
+        if (!met) errors.push(`Arquivo obrigatório ausente: ${reqName}`);
       });
     }
 
     return errors;
+  };
+
+  /**
+   * Prepara os arquivos para o envio, renomeando imagens que atendem aos requisitos
+   * dinâmicos para o nome esperado (Tag) pelo backend.
+   */
+  const prepareFilesForUpload = (currentFiles: File[]): File[] => {
+    return currentFiles.map(file => {
+      // Se não for imagem, não mexemos
+      if (!['image/png', 'image/jpeg'].includes(file.type)) return file;
+
+      const nameWithoutExt = file.name.split('.').slice(0, -1).join('.');
+      const entry = Object.entries(dynamicRequiredMap).find(([displayName]) => 
+        nameWithoutExt.toLowerCase() === displayName.toLowerCase() ||
+        file.name.toLowerCase().startsWith(displayName.toLowerCase())
+      );
+
+      if (entry) {
+        const [_, backendTagName] = entry;
+        const extension = file.name.split('.').pop();
+        // Cria um novo Blob com o conteúdo original e o nome da Tag do Backend
+        return new File([file], `${backendTagName}.${extension}`, { type: file.type });
+      }
+
+      return file;
+    });
   };
 
   const handleProcessClick = async (data: UploadFormData) => {
@@ -137,9 +177,10 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
     setIsProcessing(true);
     setApiError(null);
     try {
-      await api.checkLayout(sessionData?.tests ?? []);
+      const preparedFiles = prepareFilesForUpload(data.files);
+      await api.checkLayout(tests ?? []);
       toast.success('Layout validado com sucesso!');
-      onNext(data.files);
+      onNext(preparedFiles);
     } catch (err) {
       // O erro já é tratado com toast.error dentro do api.checkLayout
       const message = err instanceof Error ? err.message : 'Layout não cadastrado';
@@ -248,18 +289,6 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
                   <span className="font-medium text-sm">Capa de Liberação (.pdf)</span>
                 </div>
 
-                <div className={twMerge(
-                  'flex items-center space-x-3 p-3 rounded-lg border transition-colors',
-                  files.some(f => ['image/png', 'image/jpeg'].includes(f.type))
-                    ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-500/10 dark:border-green-500/20'
-                    : 'bg-white border-apple-gray text-apple-secondary dark:bg-apple-gray/20 dark:border-apple-gray/30'
-                )}>
-                  {files.some(f => ['image/png', 'image/jpeg'].includes(f.type))
-                    ? <CheckCircle2 size={18} className="text-green-500" />
-                    : <Circle size={18} className="text-apple-secondary/50" />}
-                  <span className="font-medium text-sm">Imagens Análogas (.png/jpeg)</span>
-                </div>
-
                 {/* Registro de Ensaio (Já existente no ASE, mas agora unificado) */}
                 <div className={twMerge(
                   'flex items-center space-x-3 p-3 rounded-lg border transition-colors',
@@ -273,8 +302,8 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
                   <span className="font-medium text-sm">Registro de Ensaio (.xlsx/xls)</span>
                 </div>
 
-                {/* Requisitos Específicos Adicionais (Ex: TESTE2) */}
-                {isTeste2 && REQUIRED_FILES_TESTE2.map((reqName) => {
+                {/* Requisitos Específicos Adicionais Dinâmicos */}
+                {dynamicRequiredNames.map((reqName) => {
                   const isMet = hasFile(reqName);
                   return (
                     <div

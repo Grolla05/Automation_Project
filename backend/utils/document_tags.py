@@ -146,11 +146,44 @@ def get_text_tags(nome_arquivo, texto_extraido, layout_name=None, sufixo=""):
     
     return tags
 
-def get_image_tags(sufixo=""):
-    """
-    Retorna a lista de tags que sinalizam a inserção de imagens no relatório.
-    """
-    return [
-        f'[IMAGEM_UPLOAD{sufixo}]',
-        f'[IMAGEM_UPLOAD_ANEXADA{sufixo}]'
+# Configuração de Tags de Imagem por Layout
+LAYOUT_IMAGE_CONFIG = {
+    'AGULHA_HIPODERMICA': [
+        '[logo_fabricante]',
+        '[foto_embalagem]',
+        '[foto_amostra]',
+        '[foto_lacre_OCP]',
+        '[foto_embalagem_transporte]',
+        '[foto_embalagem_secundaria]',
+        '[foto_etiqueta_amostra]'
+    ],
+    'TESTE1': [
+        '[IMAGEM_UPLOAD]', 
+        '[IMAGEM_UPLOAD_ANEXADA]'
+    ],
+    'TESTE2': [
+        '[IMAGEM_UPLOAD]', 
+        '[IMAGEM_UPLOAD_ANEXADA]',
+    ],
+    'DEFAULT': [
+        '[IMAGEM_UPLOAD]', 
+        '[IMAGEM_UPLOAD_ANEXADA]'
     ]
+}
+
+def get_image_tags(layout_name=None, sufixo=""):
+    """
+    Retorna a lista de tags que sinalizam a inserção de imagens no relatório,
+    baseado no layout selecionado.
+    """
+    normalized_name = str(layout_name).upper().replace('_LAYOUT', '') if layout_name else "DEFAULT"
+    
+    # Busca a lista de tags para o layout ou usa o padrão
+    tags_base = LAYOUT_IMAGE_CONFIG.get(normalized_name, LAYOUT_IMAGE_CONFIG['DEFAULT'])
+    
+    # Aplica o sufixo numérico em cada tag (ex: [IMAGEM_UPLOAD] -> [IMAGEM_UPLOAD1])
+    # Mantém a tag original se não houver sufixo
+    if not sufixo:
+        return tags_base
+        
+    return [t.replace(']', f'{sufixo}]') for t in tags_base]
