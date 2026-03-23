@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTranslation } from 'react-i18next';
 import { X, Upload, FileText, Image as ImageIcon, CheckCircle2, Circle, FileSpreadsheet, AlertCircle } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
+import { useWizardStore } from '../hooks/useWizardStore';
 import Button from './ui/Button';
 import Card from './ui/Card';
 import { api } from '../services/api';
@@ -13,16 +13,7 @@ import { createUploadSchema, type UploadFormData } from '../schemas/uploadSchema
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-/** Dados de sessão passados de App para UploadLayout */
-export interface SessionData {
-  sector: string;
-  testType?: string;
-  tests: string[];
-  files?: File[];
-}
-
 interface UploadLayoutProps {
-  sessionData: SessionData;
   onNext: (files: File[]) => void;
   onBack: () => void;
 }
@@ -41,20 +32,20 @@ const VALID_TYPES = [...VALID_IMAGE_TYPES, 'application/pdf', 'application/vnd.o
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
-  const { t } = useTranslation();
+const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
+  const { sector, testType, tests } = useWizardStore();
   const [isHovering, setIsHovering] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const isTeste2 = sessionData?.tests?.includes('TESTE2');
-  const isASE = sessionData?.testType === 'ASE';
+  const isTeste2 = tests?.includes('TESTE2');
+  const isASE = testType === 'ASE';
   const REQUIRED_FILES_TESTE2 = ['image_test2.1', 'image_test2.2'];
 
   const schema = createUploadSchema({
-    tests: sessionData?.tests ?? [],
-    testType: sessionData?.testType,
+    tests: tests ?? [],
+    testType: testType,
   });
 
   const {
@@ -109,14 +100,14 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
   };
 
   const validateRequirements = (files: File[]): string[] => {
-    const errs: string[] = [];
+    const errors: string[] = [];
     const hasPDF = files.some(f => f.type === 'application/pdf');
     const hasImage = files.some(f => ['image/png', 'image/jpeg'].includes(f.type));
     const hasExcelFile = files.some(isExcelFile);
 
-    if (!hasPDF) errs.push(t('upload.error_pdf_required'));
-    if (!hasImage) errs.push(t('upload.error_image_required'));
-    if (!hasExcelFile) errs.push(t('upload.error_excel_required'));
+    if (!hasPDF) errors.push('A Capa de Liberação (.PDF) é obrigatória.');
+    if (!hasImage) errors.push('Pelo menos uma Imagem Análoga (.png/jpeg) é obrigatória.');
+    if (!hasExcelFile) errors.push('A Planilha de Registro (.xlsx/xls) é obrigatória.');
 
     if (isTeste2) {
       REQUIRED_FILES_TESTE2.forEach(reqName => {
@@ -127,11 +118,11 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
             f.name.toLowerCase().startsWith(reqName.toLowerCase())
           );
         });
-        if (!met) errs.push(t('upload.error_test2_required', { name: reqName }));
+        if (!met) errors.push(`Arquivo obrigatório do TESTE2 ausente: ${reqName}`);
       });
     }
 
-    return errs;
+    return errors;
   };
 
   const handleProcessClick = async (data: UploadFormData) => {
@@ -147,11 +138,11 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
     setApiError(null);
     try {
       await api.checkLayout(sessionData?.tests ?? []);
-      toast.success(t('upload.success_layout_validated'));
+      toast.success('Layout validado com sucesso!');
       onNext(data.files);
     } catch (err) {
       // O erro já é tratado com toast.error dentro do api.checkLayout
-      const message = err instanceof Error ? err.message : t('common.error');
+      const message = err instanceof Error ? err.message : 'Layout não cadastrado';
       setApiError(message);
       setTimeout(() => setApiError(null), 4000);
     } finally {
@@ -163,12 +154,12 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
     setApiError(null);
     
     // Filtro rigoroso antes de atualizar o estado
+    const initialFilesCount = files.length;
     const validFiles = newFiles.filter(file => {
       const isSupported = VALID_TYPES.includes(file.type) || isExcelFile(file);
       if (!isSupported) {
-        const msg = t('upload.error_unsupported', { name: file.name });
-        toast.error(msg);
-        setApiError(msg);
+        toast.error(`O arquivo ${file.name} não é suportado.`);
+        setApiError(`O arquivo ${file.name} não é suportado.`);
         setTimeout(() => setApiError(null), 4000);
         return false;
       }
@@ -179,7 +170,7 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
       const updatedFiles = [...files, ...validFiles];
       setValue('files', updatedFiles);
       await trigger('files');
-      toast.success(t('upload.success_files_added', { count: validFiles.length }));
+      toast.success(`${validFiles.length} arquivo(s) adicionado(s).`);
     }
   };
 
@@ -210,9 +201,9 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
   };
 
   const getFileLabel = (file: File): string => {
-    if (file.type === 'application/pdf') return t('upload.file_pdf');
-    if (isExcelFile(file)) return t('upload.file_excel');
-    return t('upload.file_image');
+    if (file.type === 'application/pdf') return 'Documento PDF';
+    if (isExcelFile(file)) return 'Planilha Excel';
+    return 'Imagem';
   };
 
   return (
@@ -224,8 +215,8 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
       className="flex flex-col items-center justify-center min-h-[80vh] w-full px-4"
     >
       <div className="text-center mb-10">
-        <h1 className="text-4xl font-bold text-apple-text tracking-tight mb-2">{t('upload.title')}</h1>
-        <p className="text-apple-secondary text-lg">{t('upload.subtitle')}</p>
+        <h1 className="text-4xl font-bold text-apple-text tracking-tight mb-2">Upload de Arquivos</h1>
+        <p className="text-apple-secondary text-lg">Selecione os arquivos análogos ao ensaio.</p>
       </div>
 
       <Card className="max-w-3xl">
@@ -238,48 +229,48 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
               className="bg-apple-blue/5 border border-apple-blue/20 rounded-apple p-5"
             >
               <h3 className="text-sm font-semibold text-apple-blue mb-3">
-                {t('upload.requirements_title')} {isASE ? 'ASE' : 'TESTE2'}
+                Pré-requisitos do Ensaio {isASE ? 'ASE' : 'TESTE2'}
               </h3>
               <p className="text-xs text-apple-secondary mb-3">
-                {t('upload.requirements_subtitle')}
+                Para processar este ensaio, você deve anexar obrigatoriamente os seguintes arquivos:
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {/* Requisitos Fixos (Arquivos Obrigatórios para Todos) */}
-                  <div className={twMerge(
-                    'flex items-center space-x-3 p-3 rounded-lg border transition-colors',
-                    files.some(f => f.type === 'application/pdf')
-                      ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-500/20 dark:border-green-500/30 dark:text-green-400'
-                      : 'bg-apple-bg border-apple-gray text-apple-secondary'
-                  )}>
+                <div className={twMerge(
+                  'flex items-center space-x-3 p-3 rounded-lg border transition-colors',
+                  files.some(f => f.type === 'application/pdf')
+                    ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-500/10 dark:border-green-500/20'
+                    : 'bg-white border-apple-gray text-apple-secondary dark:bg-apple-gray/20 dark:border-apple-gray/30'
+                )}>
                   {files.some(f => f.type === 'application/pdf')
                     ? <CheckCircle2 size={18} className="text-green-500" />
                     : <Circle size={18} className="text-apple-secondary/50" />}
-                  <span className="font-medium text-sm">{t('upload.capa_liberacao')}</span>
+                  <span className="font-medium text-sm">Capa de Liberação (.pdf)</span>
                 </div>
 
                 <div className={twMerge(
                   'flex items-center space-x-3 p-3 rounded-lg border transition-colors',
                   files.some(f => ['image/png', 'image/jpeg'].includes(f.type))
-                    ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-500/20 dark:border-green-500/30 dark:text-green-400'
-                    : 'bg-apple-bg border-apple-gray text-apple-secondary'
+                    ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-500/10 dark:border-green-500/20'
+                    : 'bg-white border-apple-gray text-apple-secondary dark:bg-apple-gray/20 dark:border-apple-gray/30'
                 )}>
                   {files.some(f => ['image/png', 'image/jpeg'].includes(f.type))
                     ? <CheckCircle2 size={18} className="text-green-500" />
                     : <Circle size={18} className="text-apple-secondary/50" />}
-                  <span className="font-medium text-sm">{t('upload.imagens_analogas')}</span>
+                  <span className="font-medium text-sm">Imagens Análogas (.png/jpeg)</span>
                 </div>
 
                 {/* Registro de Ensaio (Já existente no ASE, mas agora unificado) */}
                 <div className={twMerge(
                   'flex items-center space-x-3 p-3 rounded-lg border transition-colors',
                   hasExcel()
-                    ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-500/20 dark:border-green-500/30 dark:text-green-400'
-                    : 'bg-apple-bg border-apple-gray text-apple-secondary'
+                    ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-500/10 dark:border-green-500/20'
+                    : 'bg-white border-apple-gray text-apple-secondary dark:bg-apple-gray/20 dark:border-apple-gray/30'
                 )}>
                   {hasExcel()
                     ? <CheckCircle2 size={18} className="text-green-500" />
                     : <Circle size={18} className="text-apple-secondary/50" />}
-                  <span className="font-medium text-sm">{t('upload.registro_ensaio')}</span>
+                  <span className="font-medium text-sm">Registro de Ensaio (.xlsx/xls)</span>
                 </div>
 
                 {/* Requisitos Específicos Adicionais (Ex: TESTE2) */}
@@ -291,8 +282,8 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
                       className={twMerge(
                         'flex items-center space-x-3 p-3 rounded-lg border transition-colors',
                         isMet
-                          ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-500/20 dark:border-green-500/30 dark:text-green-400'
-                          : 'bg-apple-bg border-apple-gray text-apple-secondary'
+                          ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-500/10 dark:border-green-500/20'
+                          : 'bg-white border-apple-gray text-apple-secondary dark:bg-apple-gray/20 dark:border-apple-gray/30'
                       )}
                     >
                       {isMet
@@ -335,15 +326,15 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
               />
               <div className={twMerge(
                 'w-16 h-16 rounded-full shadow-apple flex items-center justify-center mb-4 transition-colors',
-                errors.files ? 'bg-red-500 text-white' : 'bg-apple-white text-apple-blue'
+                errors.files ? 'bg-red-500 text-white' : 'bg-white dark:bg-apple-gray text-apple-blue'
               )}>
                 <Upload size={28} />
               </div>
               <p className={twMerge('font-medium text-lg transition-colors', errors.files ? 'text-red-500' : 'text-apple-text')}>
-                {errors.files ? t('upload.dropzone_active') : t('upload.dropzone_idle')}
+                {errors.files ? 'Arquivo inválido!' : 'Arraste arquivos aqui'}
               </p>
               <p className={twMerge('text-sm mt-1 transition-colors', errors.files ? 'text-red-400' : 'text-apple-secondary')}>
-                {errors.files ? t('upload.dropzone_sub_active') : t('upload.dropzone_sub_idle')}
+                {errors.files ? 'Revise os requisitos de arquivo' : 'ou clique para navegar'}
               </p>
             </motion.div>
           </div>
@@ -400,7 +391,7 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
                   className="flex items-center justify-between p-3 bg-apple-bg rounded-apple border border-apple-gray group"
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="bg-apple-white p-2 rounded-lg">
+                    <div className="bg-white p-2 rounded-lg">
                       {file.type === 'application/pdf' ? (
                         <FileText size={18} className="text-red-500" />
                       ) : isExcelFile(file) ? (
@@ -432,7 +423,7 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
 
           {/* Actions */}
           <div className="flex justify-between items-center pt-4 border-t border-apple-gray">
-            <Button variant="ghost" type="button" onClick={onBack} disabled={isProcessing}>{t('common.back')}</Button>
+            <Button variant="ghost" type="button" onClick={onBack} disabled={isProcessing}>Voltar</Button>
             <div className="flex items-center space-x-4">
               <Button
                 variant="blue"
@@ -440,7 +431,7 @@ const UploadLayout = ({ sessionData, onNext, onBack }: UploadLayoutProps) => {
                 disabled={isProcessing || !!errors.files || files.length === 0 || !areRequirementsMet()}
                 className="px-12"
               >
-                {isProcessing ? t('common.verifying') : `${t('common.process')}${files.length > 0 ? ` (${files.length})` : ''}`}
+                {isProcessing ? 'Verificando...' : `Processar${files.length > 0 ? ` (${files.length})` : ''}`}
               </Button>
             </div>
           </div>

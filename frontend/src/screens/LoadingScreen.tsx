@@ -1,49 +1,62 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import Card from '../components/ui/Card';
 import { api } from '../services/api';
-import { useSession } from '../context/SessionContext';
+import { useWizardStore } from '../hooks/useWizardStore';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface ProgressInterval {
+  threshold: number;
+  text: string;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const PROGRESS_INTERVALS: ProgressInterval[] = [
+  { threshold: 30, text: 'Processando OCR em imagens...' },
+  { threshold: 60, text: 'Extraindo dados técnicos...' },
+  { threshold: 85, text: 'Formatando documento Word...' },
+];
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+/**
+ * LoadingScreen — Rota `/process`
+ *
+ * Guard: redireciona para `/upload` se não houver arquivos na sessão.
+ */
 const LoadingScreen = () => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
-  const { session, setReportPath } = useSession();
+  const { sector, tests, files, setReportPath } = useWizardStore();
 
   const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState(t('loading.startup'));
+  const [status, setStatus] = useState('Iniciando processamento...');
   const isMountedRef = useRef(true);
 
   // ── Guard ──────────────────────────────────────────────────────────────────
-  if (session.files.length === 0) {
+  if (files.length === 0) {
     return <Navigate to="/upload" replace />;
   }
 
-
   // ── OCR Processing ─────────────────────────────────────────────────────────
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     isMountedRef.current = true;
+    let timer: ReturnType<typeof setInterval>;
 
     const processBackend = async () => {
       try {
         const result = await api.processImages(
-          session.sector,
-          session.tests,
-          session.files,
-          (progress, message) => {
-            if (isMountedRef.current) {
-              setProgress(progress);
-              setStatus(message);
-            }
-          }
+          sector,
+          tests,
+          files
         );
 
         if (isMountedRef.current) {
           setProgress(100);
-          setStatus(t('loading.finalizing'));
+          setStatus('Finalizando relatório...');
           setTimeout(() => {
             setReportPath(result.path);
             navigate('/result');
@@ -51,19 +64,34 @@ const LoadingScreen = () => {
         }
       } catch (err) {
         if (isMountedRef.current) {
-          setStatus(t('loading.error'));
+          setStatus('Erro no processamento.');
           console.error('OCR API error:', err);
         }
       }
     };
 
+    const runFakeProgress = () => {
+      timer = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 90) return 90;
+          const next = prev + Math.random() * 8;
+          const currentStatus = PROGRESS_INTERVALS.find((i) => next <= i.threshold);
+          if (currentStatus) setStatus(currentStatus.text);
+          return next;
+        });
+      }, 500);
+    };
+
+    runFakeProgress();
     processBackend();
 
     return () => {
       isMountedRef.current = false;
+      clearInterval(timer);
     };
+  // session values are stable references from SessionContext — safe to list
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t]);
+  }, []);
 
   return (
     <motion.div

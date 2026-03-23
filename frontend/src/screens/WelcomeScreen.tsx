@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import * as Select from '@radix-ui/react-select';
 import * as Checkbox from '@radix-ui/react-checkbox';
 import * as Label from '@radix-ui/react-label';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { ChevronDown, Check, Search } from 'lucide-react';
-import { getTestTypesForSector, getTestsForType, SECTOR_DATA } from '../lib/data';
-import { useSession } from '../context/SessionContext';
+import { SECTOR_DATA, TestAvailability } from '../lib/data';
+import { useWizardStore } from '../hooks/useWizardStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,15 +22,12 @@ export interface WelcomeSelectionData {
 
 const WelcomeScreen = () => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
-  const { session, setSelection } = useSession();
+  const { userData, setSelection } = useWizardStore();
 
   const [selectedSector, setSelectedSector] = useState<string>('');
   const [selectedTestType, setSelectedTestType] = useState<string>('');
   const [selectedTests, setSelectedTests] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
-
-  const { userData } = session;
 
   const handleSectorChange = (value: string) => {
     setSelectedSector(value);
@@ -52,9 +48,14 @@ const WelcomeScreen = () => {
     );
   };
 
-  const availableTestTypes = getTestTypesForSector(selectedSector);
+  const availableTestTypes: string[] = selectedSector
+    ? Object.keys(SECTOR_DATA[selectedSector] ?? {})
+    : [];
 
-  const availableTests = getTestsForType(selectedSector, selectedTestType);
+  const availableTests: TestAvailability[] =
+    selectedSector && selectedTestType
+      ? (SECTOR_DATA[selectedSector]?.[selectedTestType] ?? []).flat()
+      : [];
 
   const filteredTests = availableTests.filter((test) =>
     test.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -86,7 +87,7 @@ const WelcomeScreen = () => {
           {userData?.picture ? (
             <img
               src={userData.picture}
-              alt={`${t('welcome.hello')}, ${userData.name}`}
+              alt={`Foto de perfil de ${userData.name}`}
               className="w-full h-full object-cover rounded-full relative z-10"
             />
           ) : (
@@ -104,10 +105,10 @@ const WelcomeScreen = () => {
           transition={{ delay: 0.4, duration: 0.6 }}
         >
           <h1 className="text-4xl font-bold text-apple-text tracking-tight mb-2 text-center">
-            {t('welcome.hello')}, {userData?.name || t('welcome.engineer')}
+            Olá, {userData?.name || 'Engenheiro'}
           </h1>
           <p className="text-apple-secondary text-lg text-center">
-            {t('welcome.subtitle')}
+            Selecione o setor para visualizar os ensaios disponíveis.
           </p>
         </motion.div>
       </div>
@@ -117,28 +118,31 @@ const WelcomeScreen = () => {
           {/* Sector Selection */}
           <div className="space-y-3">
             <Label.Root className="text-sm font-semibold text-apple-secondary uppercase tracking-wider" htmlFor="sector-select">
-              {t('welcome.sector_label')}
+              Setor
             </Label.Root>
             <Select.Root value={selectedSector} onValueChange={handleSectorChange}>
               <Select.Trigger
                 id="sector-select"
                 className="flex items-center justify-between w-full bg-apple-bg/50 border-2 border-transparent hover:border-apple-gray rounded-apple px-4 py-3.5 text-apple-text font-medium focus:bg-transparent focus:text-apple-blue focus:outline-none focus:border-apple-blue focus:ring-4 focus:ring-apple-blue/30 transition-all duration-300 cursor-pointer shadow-sm text-left"
-                aria-label={t('welcome.sector_placeholder')}
+                aria-label="Selecionar setor"
               >
-                <Select.Value placeholder={t('welcome.sector_placeholder')} />
+                <Select.Value placeholder="Selecione o setor..." />
                 <Select.Icon>
                   <ChevronDown className="text-apple-secondary" size={20} />
                 </Select.Icon>
               </Select.Trigger>
 
               <Select.Portal>
-                <Select.Content position="popper" sideOffset={5} className="z-[200] overflow-hidden bg-apple-white rounded-xl shadow-xl border border-apple-gray animate-in fade-in zoom-in-95 duration-200 w-[var(--radix-select-trigger-width)]">
+                <Select.Content className="z-[200] overflow-hidden bg-white rounded-xl shadow-xl border border-apple-gray animate-in fade-in zoom-in-95 duration-200 dark:bg-[#3e3e3e] dark:border-white/10">
+                  <Select.ScrollUpButton className="flex items-center justify-center h-[25px] bg-white text-apple-secondary cursor-default dark:bg-[#3e3e3e]">
+                    <ChevronDown className="rotate-180" size={16} />
+                  </Select.ScrollUpButton>
                   <Select.Viewport className="p-2">
                     {Object.keys(SECTOR_DATA).map((s) => (
                       <Select.Item
                         key={s}
                         value={s}
-                        className="relative flex items-center px-8 py-3 text-sm font-medium text-apple-text rounded-lg hover:bg-apple-bg hover:text-apple-blue cursor-pointer outline-none focus:bg-apple-blue/10 focus:text-apple-blue transition-colors"
+                        className="relative flex items-center px-8 py-3 text-sm font-medium text-[#1d1d1f] rounded-lg hover:bg-apple-bg dark:text-[#f5f5f7] dark:hover:bg-apple-blue/20 hover:text-apple-blue cursor-pointer outline-none focus:bg-apple-blue/10 focus:text-apple-blue transition-colors"
                       >
                         <Select.ItemText>{s}</Select.ItemText>
                         <Select.ItemIndicator className="absolute left-2 flex items-center justify-center">
@@ -147,6 +151,9 @@ const WelcomeScreen = () => {
                       </Select.Item>
                     ))}
                   </Select.Viewport>
+                  <Select.ScrollDownButton className="flex items-center justify-center h-[25px] bg-white dark:bg-apple-dark-gray text-apple-secondary cursor-default">
+                    <ChevronDown size={16} />
+                  </Select.ScrollDownButton>
                 </Select.Content>
               </Select.Portal>
             </Select.Root>
@@ -161,28 +168,28 @@ const WelcomeScreen = () => {
                 className="space-y-3"
               >
                 <Label.Root className="text-sm font-semibold text-apple-secondary uppercase tracking-wider" htmlFor="test-type-select">
-                  {t('welcome.test_type_label')}
+                  Tipo de Ensaio
                 </Label.Root>
                 <Select.Root value={selectedTestType} onValueChange={handleTestTypeChange}>
                   <Select.Trigger
                     id="test-type-select"
                     className="flex items-center justify-between w-full bg-apple-bg/50 border-2 border-transparent hover:border-apple-gray rounded-apple px-4 py-3.5 text-apple-text font-medium focus:bg-transparent focus:text-apple-blue focus:outline-none focus:border-apple-blue focus:ring-4 focus:ring-apple-blue/30 transition-all duration-300 cursor-pointer shadow-sm text-left"
-                    aria-label={t('welcome.test_type_placeholder')}
+                    aria-label="Selecionar tipo de ensaio"
                   >
-                    <Select.Value placeholder={t('welcome.test_type_placeholder')} />
+                    <Select.Value placeholder="Selecione o tipo de ensaio..." />
                     <Select.Icon>
                       <ChevronDown className="text-apple-secondary" size={20} />
                     </Select.Icon>
                   </Select.Trigger>
 
                   <Select.Portal>
-                    <Select.Content position="popper" sideOffset={5} className="z-[200] overflow-hidden bg-apple-white rounded-xl shadow-xl border border-apple-gray animate-in fade-in zoom-in-95 duration-200 w-[var(--radix-select-trigger-width)]">
+                    <Select.Content className="z-[200] overflow-hidden bg-white dark:bg-apple-dark-gray rounded-xl shadow-xl border border-apple-gray dark:border-white/10 animate-in fade-in zoom-in-95 duration-200">
                       <Select.Viewport className="p-2">
                         {availableTestTypes.map((t) => (
                           <Select.Item
                             key={t}
                             value={t}
-                            className="relative flex items-center px-8 py-3 text-sm font-medium text-apple-text rounded-lg hover:bg-apple-bg hover:text-apple-blue cursor-pointer outline-none focus:bg-apple-blue/10 focus:text-apple-blue transition-colors"
+                            className="relative flex items-center px-8 py-3 text-sm font-medium text-apple-text dark:text-apple-white rounded-lg hover:bg-apple-bg dark:hover:bg-apple-blue/20 hover:text-apple-blue cursor-pointer outline-none focus:bg-apple-blue/10 focus:text-apple-blue transition-colors"
                           >
                             <Select.ItemText>{t}</Select.ItemText>
                             <Select.ItemIndicator className="absolute left-2 flex items-center justify-center">
@@ -208,7 +215,7 @@ const WelcomeScreen = () => {
               >
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <span className="text-sm font-semibold text-apple-secondary uppercase tracking-wider">
-                    {t('welcome.items_for')} {selectedTestType}
+                    Itens e Ensaios para {selectedTestType}
                   </span>
                   
                   {/* Search Bar */}
@@ -216,8 +223,8 @@ const WelcomeScreen = () => {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-apple-secondary" size={16} />
                     <input
                       type="text"
-                      placeholder={t('welcome.filter_placeholder')}
-                      aria-label={t('welcome.filter_placeholder')}
+                      placeholder="Filtrar ensaios..."
+                      aria-label="Filtrar lista de ensaios"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full bg-apple-bg/50 border border-transparent hover:border-apple-gray focus:border-apple-blue focus:ring-2 focus:ring-apple-blue/20 rounded-lg pl-10 pr-4 py-2 text-sm transition-all focus:outline-none"
@@ -240,12 +247,15 @@ const WelcomeScreen = () => {
                             checked={isChecked}
                             onCheckedChange={() => toggleTest(test.name)}
                             className={`
-                              w-full flex items-center justify-between px-5 py-3.5 rounded-xl border-2 transition-all duration-300 relative overflow-hidden text-left cursor-pointer
+                              w-full flex items-center justify-between px-5 py-3.5 rounded-xl border-2 transition-all duration-300 relative overflow-hidden text-left
                               ${isDisabled
                                 ? 'opacity-40 cursor-not-allowed border-apple-gray bg-apple-gray/10 text-apple-secondary grayscale'
-                                : isChecked
-                                  ? 'border-apple-blue bg-apple-blue/5 dark:bg-apple-blue/20 text-apple-blue shadow-[0_8px_16px_rgba(0,113,227,0.12)]'
-                                  : 'border-transparent bg-apple-bg text-apple-text hover:bg-apple-white shadow-sm'}
+                                : 'cursor-pointer hover:border-apple-gray hover:bg-apple-white dark:hover:bg-apple-blue/10 hover:shadow-sm'}
+                              ${isChecked && !isDisabled
+                                ? 'border-apple-blue bg-apple-blue/5 dark:bg-apple-blue/20 text-apple-blue shadow-[0_8px_16px_rgba(0,113,227,0.12)]'
+                                : !isDisabled
+                                  ? 'border-transparent bg-apple-bg text-apple-text dark:text-apple-white'
+                                  : ''}
                             `}
                           >
                             <div className="flex flex-col relative z-10">
@@ -254,7 +264,7 @@ const WelcomeScreen = () => {
                               </span>
                               {isDisabled && (
                                 <span className="text-[10px] uppercase tracking-tighter opacity-70">
-                                  {t('welcome.unavailable')}
+                                  Indisponível
                                 </span>
                               )}
                             </div>
@@ -272,7 +282,7 @@ const WelcomeScreen = () => {
                     })
                   ) : (
                     <div className="col-span-full py-8 text-center text-apple-secondary italic">
-                      {t('welcome.no_tests_found')} "{searchTerm}"
+                      Nenhum ensaio encontrado para "{searchTerm}"
                     </div>
                   )}
                 </fieldset>
@@ -285,9 +295,9 @@ const WelcomeScreen = () => {
               onClick={handleNext}
               disabled={!selectedTestType || selectedTests.length === 0}
               className="w-full h-14 text-lg font-bold"
-              aria-label={t('welcome.next_step')}
+              aria-label="Prosseguir para o upload de arquivos"
             >
-              {t('welcome.next_step')}
+              Próximo Passo
             </Button>
           </div>
         </div>

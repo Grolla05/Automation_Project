@@ -1,36 +1,35 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { CheckCircle2, FileDown, RotateCcw } from 'lucide-react';
 import { api } from '../services/api';
-import { useSession } from '../context/SessionContext';
+import { useWizardStore } from '../hooks/useWizardStore';
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
+/**
+ * CompletionScreen — Rota `/result`
+ *
+ * Guard: redireciona para `/` se não houver reportPath na sessão.
+ */
 const CompletionScreen = () => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
-  const { session, resetSession } = useSession();
+  const { reportPath, resetSession } = useWizardStore();
   const [downloading, setDownloading] = useState(false);
 
   // ── Guard ──────────────────────────────────────────────────────────────────
-  if (!session.reportPath) {
+  if (!reportPath) {
     return <Navigate to="/" replace />;
   }
-
-  const reportPath = session.reportPath;
 
   const handleDownload = async () => {
     setDownloading(true);
     try {
       await api.downloadReport(reportPath);
-      toast.success(t('result.download_success'));
+      toast.success('Download iniciado!');
     } catch (err) {
-      toast.error(t('result.download_error'));
+      toast.error('Erro ao baixar o relatório.');
       console.error(err);
     } finally {
       setDownloading(false);
@@ -49,7 +48,7 @@ const CompletionScreen = () => {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -50 }}
       transition={{ duration: 0.4, ease: 'easeInOut' }}
-      className="flex flex-col items-center justify-center min-vh-[80vh] w-full px-4"
+      className="flex flex-col items-center justify-center min-h-[80vh] w-full px-4"
     >
       <Card className="max-w-md">
         <div className="flex flex-col items-center text-center">
@@ -63,10 +62,10 @@ const CompletionScreen = () => {
           </motion.div>
 
           <h2 className="text-3xl font-bold text-apple-text tracking-tight mb-2">
-            {t('result.title')}
+            Relatório Concluído!
           </h2>
           <p className="text-apple-secondary text-lg mb-8">
-            {t('result.subtitle')}
+            Os dados foram processados com sucesso. O seu documento Word já está pronto.
           </p>
 
           <div className="flex flex-col w-full space-y-3">
@@ -77,7 +76,7 @@ const CompletionScreen = () => {
               className="w-full flex items-center justify-center space-x-2 py-4"
             >
               <FileDown size={20} />
-              <span>{downloading ? t('result.opening') : t('result.open_button')}</span>
+              <span>{downloading ? 'Abrindo...' : 'Abrir Relatório Word (.docx)'}</span>
             </Button>
 
             <Button
@@ -86,7 +85,7 @@ const CompletionScreen = () => {
               className="w-full flex items-center justify-center space-x-2"
             >
               <RotateCcw size={18} />
-              <span>{t('result.restart_button')}</span>
+              <span>Iniciar Novo Processamento</span>
             </Button>
           </div>
         </div>
@@ -98,7 +97,7 @@ const CompletionScreen = () => {
         transition={{ delay: 0.6 }}
         className="mt-8 text-apple-secondary text-sm font-medium"
       >
-        {t('result.file_saved_at')} {reportPath}
+        O arquivo foi salvo em: {reportPath}
       </motion.p>
     </motion.div>
   );

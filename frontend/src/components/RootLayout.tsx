@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import SettingsModal from './SettingsModal';
 import StartupLoading from '../screens/StartupLoading';
 import ErrorBoundary from './ErrorBoundary';
-import { useSession } from '../context/SessionContext';
+import { useWizardStore } from '../hooks/useWizardStore';
 import { api } from '../services/api';
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -24,7 +24,7 @@ const RootLayout = () => {
     { path: '/result',  label: t('stepper.result')      },
   ] as const;
 
-  const { setUserData } = useSession();
+  const { setUserData } = useWizardStore();
   const currentStepIndex = STEPS.findIndex((s) => s.path === pathname);
   const showStepper = !isStarting && currentStepIndex >= 0;
 

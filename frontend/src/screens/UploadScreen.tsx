@@ -1,5 +1,5 @@
 import { useNavigate, Navigate } from 'react-router-dom';
-import { useSession } from '../context/SessionContext';
+import { useWizardStore } from '../hooks/useWizardStore';
 import UploadLayout from '../components/UploadLayout';
 
 /**
@@ -10,10 +10,10 @@ import UploadLayout from '../components/UploadLayout';
  */
 const UploadScreen = () => {
   const navigate = useNavigate();
-  const { session, setFiles } = useSession();
+  const { sector, testType, tests, setFiles } = useWizardStore();
 
   // ── Guard ──────────────────────────────────────────────────────────────────
-  if (!session.sector || session.tests.length === 0) {
+  if (!sector || tests.length === 0) {
     return <Navigate to="/" replace />;
   }
 
@@ -24,11 +24,6 @@ const UploadScreen = () => {
 
   return (
     <UploadLayout
-      sessionData={{
-        sector: session.sector,
-        testType: session.testType,
-        tests: session.tests,
-      }}
       onNext={handleNext}
       onBack={() => navigate('/')}
     />
