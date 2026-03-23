@@ -54,9 +54,19 @@ Aqui estão as próximas atividades planejadas para evolução da ferramenta:
 
 ## ⚙️ Como Executar
 
-1. Certifique-se de ter o **Tesseract OCR** e o **Poppler** instalados no Windows.
-2. Instale as dependências do backend: `pip install -r backend/requirements.txt`.
-3. Instale as dependências do frontend: `npm install --legacy-peer-deps`.
-4. Rode o software: `python backend/main.py`.
+1. Entre na pasta backend do projeto e certifique-se de que as dependências estão instaladas
+pip install -r backend/requirements.txt
+
+2. Entre na pasta frontend do projeto e instale as dependencias
+npm i --legacy-peer-deps
+
+3. Rode o comando de empacotamento
+pyinstaller --noconfirm --onefile --windowed \
+--name "Automation_Project" \
+--distpath "desktop" \
+--add-data "backend/storage;storage" \
+--add-data "frontend/dist;frontend/dist" \
+--hidden-import "clr" \
+backend/run_desktop.py
 
 ---
