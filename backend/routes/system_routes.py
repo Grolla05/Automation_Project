@@ -2,12 +2,13 @@ import os
 import subprocess
 import base64
 import json
-from flask import Blueprint, request, jsonify, send_from_directory, current_app
+from flask import request, jsonify, send_from_directory, current_app
+from flask_restx import Namespace, Resource
 from utils.logger_config import setup_logger
 from config_loader import config
 
 logger = setup_logger()
-system_bp = Blueprint('system', __name__)
+system_ns = Namespace('system', description='Operações de sistema e configurações', path='/')
 
 EXPORT_FOLDER = config.EXPORT_FOLDER
 SETTINGS_PATH = os.path.join('storage', 'user_settings.json')
@@ -42,30 +43,28 @@ def get_windows_username():
         logger.error(f"Erro ao obter usuário: {str(e)}")
         return "Engenheiro"
 
-@system_bp.route('/')
-def serve_frontend():
-    from flask import current_app
-    if os.path.exists(current_app.static_folder):
-        return send_from_directory(current_app.static_folder, 'index.html')
-    return "Frontend não compilado. Rode 'npm run build'."
+@system_ns.route('/user/info')
+class UserInfo(Resource):
+    def get(self):
+        """Obtém informações do usuário Windows"""
+        username = get_windows_username()
+        picture = get_windows_profile_picture()
+        return {"name": username, "picture": picture}
 
-@system_bp.route('/api/user/info', methods=['GET'])
-def get_user_info():
-    username = get_windows_username()
-    picture = get_windows_profile_picture()
-    return jsonify({"name": username, "picture": picture})
-
-@system_bp.route('/api/settings', methods=['GET', 'POST'])
-def handle_settings():
-    settings_path = os.path.abspath(SETTINGS_PATH)
-    dev_path = os.path.abspath(FRONTEND_LIB_SETTINGS)
-
-    if request.method == 'GET':
+@system_ns.route('/settings')
+class Settings(Resource):
+    def get(self):
+        """Obtém as configurações do usuário"""
+        settings_path = os.path.abspath(SETTINGS_PATH)
         if os.path.exists(settings_path):
             with open(settings_path, 'r', encoding='utf-8') as f:
-                return jsonify(json.load(f))
-        return jsonify({"theme": "light"})
-    else:
+                return json.load(f)
+        return {"theme": "light"}
+
+    def post(self):
+        """Salva as configurações do usuário"""
+        settings_path = os.path.abspath(SETTINGS_PATH)
+        dev_path = os.path.abspath(FRONTEND_LIB_SETTINGS)
         settings = request.json
         for path in [settings_path, dev_path]:
             try:
@@ -73,4 +72,4 @@ def handle_settings():
                 with open(path, 'w', encoding='utf-8') as f:
                     json.dump(settings, f, indent=2, ensure_ascii=False)
             except: continue
-        return jsonify({"success": True})
+        return {"success": True}

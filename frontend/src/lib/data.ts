@@ -85,16 +85,18 @@ export const LAYOUT_MAPPING: Record<string, string> = {
  * O mapeamento permite que o frontend saiba qual TAG do backend cada arquivo representa.
  * Estrutura: { [NomeEnsaio]: { [NomeArquivoExibicao]: [TagBackend] } }
  */
+const ASE_IMAGE_REQS = {
+  'Logotipo do Fabricante': '[logo_fabricante]',
+  'Foto da Embalagem': '[foto_embalagem]',
+  'Foto da Amostra': '[foto_amostra]',
+  'Foto do Lacre OCP': '[foto_lacre_OCP]',
+  'Foto da Embalagem de Transporte': '[foto_embalagem_transporte]',
+  'Foto da Embalagem Secundária': '[foto_embalagem_secundaria]',
+  'Foto da Etiqueta da Amostra': '[foto_etiqueta_amostra]'
+};
+
 export const REQUIRED_IMAGE_FILES: Record<string, Record<string, string>> = {
-  "AGULHA HIPODÉRMICA": {
-    'Logotipo do Fabricante': 'logo_fabricante',
-    'Foto da Embalagem': 'foto_embalagem',
-    'Foto da Amostra': 'foto_amostra',
-    'Foto do Lacre OCP': 'foto_lacre_OCP',
-    'Foto da Embalagem de Transporte': 'foto_embalagem_transporte',
-    'Foto da Embalagem Secundária': 'foto_embalagem_secundaria',
-    'Foto da Etiqueta da Amostra': 'foto_etiqueta_amostra'
-  },
+  "AGULHA HIPODÉRMICA": ASE_IMAGE_REQS,
 };
 
 /**

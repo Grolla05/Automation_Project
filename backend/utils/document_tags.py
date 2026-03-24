@@ -148,7 +148,7 @@ def get_text_tags(nome_arquivo, texto_extraido, layout_name=None, sufixo=""):
 
 # Configuração de Tags de Imagem por Layout
 LAYOUT_IMAGE_CONFIG = {
-    'AGULHA_HIPODERMICA': [
+    'ASE': [
         '[logo_fabricante]',
         '[foto_embalagem]',
         '[foto_amostra]',
@@ -157,17 +157,8 @@ LAYOUT_IMAGE_CONFIG = {
         '[foto_embalagem_secundaria]',
         '[foto_etiqueta_amostra]'
     ],
-    'TESTE1': [
-        '[IMAGEM_UPLOAD]', 
-        '[IMAGEM_UPLOAD_ANEXADA]'
-    ],
-    'TESTE2': [
-        '[IMAGEM_UPLOAD]', 
-        '[IMAGEM_UPLOAD_ANEXADA]',
-    ],
     'DEFAULT': [
-        '[IMAGEM_UPLOAD]', 
-        '[IMAGEM_UPLOAD_ANEXADA]'
+        '[IMAGEM_UPLOAD]'
     ]
 }
 
@@ -178,8 +169,12 @@ def get_image_tags(layout_name=None, sufixo=""):
     """
     normalized_name = str(layout_name).upper().replace('_LAYOUT', '') if layout_name else "DEFAULT"
     
-    # Busca a lista de tags para o layout ou usa o padrão
-    tags_base = LAYOUT_IMAGE_CONFIG.get(normalized_name, LAYOUT_IMAGE_CONFIG['DEFAULT'])
+    # Identifica se é do tipo ASE
+    if "ASE" in normalized_name or "AGULHA_HIPODERMICA" in normalized_name:
+        tags_base = LAYOUT_IMAGE_CONFIG['ASE']
+    else:
+        # Busca a lista de tags para o layout ou usa o padrão
+        tags_base = LAYOUT_IMAGE_CONFIG.get(normalized_name, LAYOUT_IMAGE_CONFIG['DEFAULT'])
     
     # Aplica o sufixo numérico em cada tag (ex: [IMAGEM_UPLOAD] -> [IMAGEM_UPLOAD1])
     # Mantém a tag original se não houver sufixo

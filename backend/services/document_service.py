@@ -85,12 +85,26 @@ class DocumentService:
                         tags_texto.update(get_text_tags(nome_arq, text_ext, normalized_layout, sufixo=""))
                     
                 # E associa a imagem física àquela tag pra hora da injeção
-                for timg in get_image_tags(normalized_layout, sufixo=sufixo):
-                    tags_imagem_list.append({"tag": timg, "caminho": caminho})
+                # Pega as tags de imagem possíveis para o layout
+                all_image_tags = get_image_tags(normalized_layout, sufixo="")
+                base_name = os.path.splitext(nome_arq)[0].lower()
                 
-                if idx == 0:
-                    for timg in get_image_tags(normalized_layout, sufixo=""):
+                # Se o nome do arquivo bate perfeitamente com uma das tags (ex: [foto_embalagem])
+                matched = False
+                for tag in all_image_tags:
+                    if tag.strip('[]').lower() == base_name:
+                        tags_imagem_list.append({"tag": tag, "caminho": caminho})
+                        matched = True
+                        break
+                
+                # Se não bateu com nome exato, usa o comportamento padrão/fallback
+                if not matched:
+                    for timg in get_image_tags(normalized_layout, sufixo=sufixo):
                         tags_imagem_list.append({"tag": timg, "caminho": caminho})
+                    
+                    if idx == 0:
+                        for timg in get_image_tags(normalized_layout, sufixo=""):
+                            tags_imagem_list.append({"tag": timg, "caminho": caminho})
             
             # Regex para dividir a string preservando as tags (ex: 'Algo [TAG] a mais' -> ['Algo ', '[TAG]', ' a mais'])
             padrao_tags = re.compile('(' + '|'.join(map(re.escape, tags_texto.keys())) + ')')

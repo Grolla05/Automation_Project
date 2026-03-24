@@ -26,7 +26,9 @@ def run_desktop():
     # Em desenvolvimento frontend, pode apontar para o Vite (5173)
     window_url = 'http://localhost:5173'
     if os.path.exists(app.static_folder):
-        window_url = f'http://{config.HTTP_HOST}:{config.HTTP_PORT}'
+        # Impedir o uso de 0.0.0.0 como endereço de destino do cliente
+        host = config.HTTP_HOST if config.HTTP_HOST != '0.0.0.0' else '127.0.0.1'
+        window_url = f'http://{host}:{config.HTTP_PORT}'
         logger.info(f"Frontend compilado encontrado. Usando servidor Flask em {window_url}")
     else:
         logger.warning("Frontend 'dist' não encontrado. Tentando carregar do Vite (porta 5173).")
@@ -43,8 +45,8 @@ def run_desktop():
         config.APP_NAME, 
         url=window_url, 
         js_api=webview_api,
-        width=1280,
-        height=1000,
+        width=config.UI_WIDTH,
+        height=config.UI_HEIGHT,
         resizable=True,
         background_color='#F5F5F7'
     )

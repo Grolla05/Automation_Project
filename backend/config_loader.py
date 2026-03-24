@@ -2,7 +2,8 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Carrega o arquivo .env se ele existir (Aderência ao 12-Factor: Configurações via Environment)
+# 12-Factor App: Configurações via Environment (.env ou variáveis do sistema)
+# Carrega o arquivo .env se ele existir no diretório raiz ou diretório pai
 load_dotenv()
 
 class Config:
@@ -18,24 +19,32 @@ class Config:
     
     # 2. Configurações de Rede
     HTTP_PORT = int(os.environ.get("HTTP_PORT", 5000))
-    HTTP_HOST = os.environ.get("HTTP_HOST", "0.0.0.0")
+    HTTP_HOST = os.environ.get("HTTP_HOST", "127.0.0.1") # 127.0.0.1 é mais seguro para desktop local
     
     # 3. Gestão de Logs
-    LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper() # DEBUG, INFO, WARNING, ERROR, CRITICAL
+    LOG_LEVEL = os.environ.get("LOG_LEVEL", "DEBUG" if DEBUG else "INFO").upper()
+    LOGS_FOLDER = os.environ.get("LOGS_FOLDER", "logs")
     
     # 4. Storage & Caminhos (Resolvidos dinamicamente)
     BASE_DIR = Path(__file__).resolve().parent.parent
     
+    # Pastas de dados - Aderência ao Factor III (Config)
     UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", os.path.join("storage", "uploads"))
     EXPORT_FOLDER = os.environ.get("EXPORT_FOLDER", os.path.join("storage", "exports"))
     LAYOUT_FOLDER = os.environ.get("LAYOUT_FOLDER", os.path.join("storage", "layout"))
-    LOGS_FOLDER = os.environ.get("LOGS_FOLDER", "logs")
     
-    # 5. Segurança (Opcional - Removido se não houver sessões Flask)
+    # Configurações de UI
+    UI_WIDTH = int(os.environ.get("UI_WIDTH", 1280))
+    UI_HEIGHT = int(os.environ.get("UI_HEIGHT", 1000))
+    FRONTEND_DIST = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist'))
 
     @classmethod
     def get_all_directories(cls):
         """Retorna lista de diretórios que precisam ser criados no startup."""
         return [cls.UPLOAD_FOLDER, cls.EXPORT_FOLDER, cls.LAYOUT_FOLDER, cls.LOGS_FOLDER]
 
+    def __repr__(self):
+        return f"<Config: {self.APP_NAME} ({self.ENV}) Port:{self.HTTP_PORT}>"
+
+# Instância única para importação em todo o projeto
 config = Config()
