@@ -12,10 +12,14 @@ from utils.logger_config import setup_logger
 from utils.validators import RequestPayload, validate_payload
 from utils.security import validate_file_shield
 from utils.cleanup import clean_temp_directories
+from utils.file_handler import FileHandler
 from config_loader import config
 
 logger = setup_logger()
 api_ns = Namespace('api', description='Operações principais de processamento OCR', path='/')
+
+# Instância única para utilitários de arquivos
+file_handler = FileHandler()
 
 # Configuração de Pastas via Config Loader (12-Factor App)
 UPLOAD_FOLDER = config.UPLOAD_FOLDER
@@ -48,8 +52,10 @@ def run_pipeline_task(job_id, payload, file_paths, request_id, main_test):
             
         jobs[job_id].update({'progress': 10, 'message': f'Usando layout: {layout_filename}'})
 
-        # 1. Triagem e Categorização de Arquivos
-        # Categoriza arquivos para que cada um siga seu fluxo exclusivo (Princípio de Responsabilidade Única)
+        # 1. Identificação de Tags e Categorização
+        # Gera o mapeamento inteligente nome_arquivo -> [tag] ou nome_seguro
+        tag_mapping = file_handler.map_files_to_tags(file_paths)
+        
         ocr_target = payload.ocr_target
         capa_path = None
         excel_paths = []
@@ -70,9 +76,9 @@ def run_pipeline_task(job_id, payload, file_paths, request_id, main_test):
                 logger.info(f"[{job_id}] EXCEL Identificado: {filename}")
             
             # Caso 3: Imagens adicionais para o corpo do relatório
-            elif ext in ['png', 'jpg', 'jpeg', 'webp']:
+            elif ext in ['png', 'jpg', 'jpeg', 'webp', 'bmp']:
                 outras_imagens.append(p)
-                logger.debug(f"[{job_id}] IMAGEM identificada para inclusão direta: {filename}")
+                logger.debug(f"[{job_id}] IMAGEM identificada: {filename} (Final Tag: {tag_mapping.get(filename)})")
 
         normalized_layout = layout_filename.replace('.docx', '')
         extracted_data_results = {}
@@ -137,8 +143,10 @@ def run_pipeline_task(job_id, payload, file_paths, request_id, main_test):
         file_data_list = []
         for file_path in file_paths:
             name = os.path.basename(file_path)
+            # Usa o nome mapeado (Tag) se existir, senão usa o nome seguro do arquivo
+            tag_name = tag_mapping.get(name, name)
             text = extracted_data_results.get(name, "")
-            file_data_list.append({"filename": name, "text": text, "path": file_path})
+            file_data_list.append({"filename": tag_name, "text": text, "path": file_path})
 
         report_filename = f"Relatorio_{main_test.replace(' ', '_')}_{request_id}.docx"
         services.doc_service.generate_report(

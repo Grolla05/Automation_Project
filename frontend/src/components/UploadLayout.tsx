@@ -29,7 +29,12 @@ const isExcelFile = (file: File): boolean => {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const VALID_IMAGE_TYPES = ['image/png', 'image/jpeg'];
-const VALID_TYPES = [...VALID_IMAGE_TYPES, 'application/pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'];
+const VALID_TYPES = [
+  ...VALID_IMAGE_TYPES,
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel'
+];
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -43,19 +48,18 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
   const isTeste2 = tests?.includes('TESTE2');
   const isASE = testType === 'ASE';
   
-  // Obtém mapa de requisitos de imagem baseado nos ensaios selecionados
-  const getRequiredFilesMap = (): Record<string, string> => {
-    let map: Record<string, string> = {};
+  // Obtém lista de requisitos de imagem baseado nos ensaios selecionados
+  const getRequiredFilesList = (): string[] => {
+    let list: string[] = [];
     tests?.forEach(test => {
       if (REQUIRED_IMAGE_FILES[test]) {
-        map = { ...map, ...REQUIRED_IMAGE_FILES[test] };
+        list = [...list, ...REQUIRED_IMAGE_FILES[test]];
       }
     });
-    return map;
+    return [...new Set(list)]; // Remove duplicados se houver
   };
 
-  const dynamicRequiredMap = getRequiredFilesMap();
-  const dynamicRequiredNames = Object.keys(dynamicRequiredMap);
+  const dynamicRequiredNames = getRequiredFilesList();
 
   const schema = createUploadSchema({
     tests: tests ?? [],
@@ -139,32 +143,6 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
     return errors;
   };
 
-  /**
-   * Prepara os arquivos para o envio, renomeando imagens que atendem aos requisitos
-   * dinâmicos para o nome esperado (Tag) pelo backend.
-   */
-  const prepareFilesForUpload = (currentFiles: File[]): File[] => {
-    return currentFiles.map(file => {
-      // Se não for imagem, não mexemos
-      if (!['image/png', 'image/jpeg'].includes(file.type)) return file;
-
-      const nameWithoutExt = file.name.split('.').slice(0, -1).join('.');
-      const entry = Object.entries(dynamicRequiredMap).find(([displayName]) => 
-        nameWithoutExt.toLowerCase() === displayName.toLowerCase() ||
-        file.name.toLowerCase().startsWith(displayName.toLowerCase())
-      );
-
-      if (entry) {
-        const [_, backendTagName] = entry;
-        const extension = file.name.split('.').pop();
-        // Cria um novo Blob com o conteúdo original e o nome da Tag do Backend
-        return new File([file], `${backendTagName}.${extension}`, { type: file.type });
-      }
-
-      return file;
-    });
-  };
-
   const handleProcessClick = async (data: UploadFormData) => {
     const reqErrors = validateRequirements(data.files);
     if (reqErrors.length > 0) {
@@ -177,10 +155,9 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
     setIsProcessing(true);
     setApiError(null);
     try {
-      const preparedFiles = prepareFilesForUpload(data.files);
       await api.checkLayout(tests ?? []);
       toast.success('Layout validado com sucesso!');
-      onNext(preparedFiles);
+      onNext(data.files);
     } catch (err) {
       // O erro já é tratado com toast.error dentro do api.checkLayout
       const message = err instanceof Error ? err.message : 'Layout não cadastrado';
@@ -193,9 +170,6 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
 
   const addFiles = async (newFiles: File[]) => {
     setApiError(null);
-    
-    // Filtro rigoroso antes de atualizar o estado
-    const initialFilesCount = files.length;
     const validFiles = newFiles.filter(file => {
       const isSupported = VALID_TYPES.includes(file.type) || isExcelFile(file);
       if (!isSupported) {

@@ -82,20 +82,19 @@ export const LAYOUT_MAPPING: Record<string, string> = {
 
 /**
  * Requisitos de nome de arquivo de imagem por ensaio.
- * O mapeamento permite que o frontend saiba qual TAG do backend cada arquivo representa.
- * Estrutura: { [NomeEnsaio]: { [NomeArquivoExibicao]: [TagBackend] } }
+ * Estrutura: { [NomeEnsaio]: string[] }
  */
-const ASE_IMAGE_REQS = {
-  'Logotipo do Fabricante': '[logo_fabricante]',
-  'Foto da Embalagem': '[foto_embalagem]',
-  'Foto da Amostra': '[foto_amostra]',
-  'Foto do Lacre OCP': '[foto_lacre_OCP]',
-  'Foto da Embalagem de Transporte': '[foto_embalagem_transporte]',
-  'Foto da Embalagem Secundária': '[foto_embalagem_secundaria]',
-  'Foto da Etiqueta da Amostra': '[foto_etiqueta_amostra]'
-};
+const ASE_IMAGE_REQS = [
+  'Logotipo do Fabricante',
+  'Foto da Embalagem',
+  'Foto da Amostra',
+  'Foto do Lacre OCP',
+  'Foto da Embalagem de Transporte',
+  'Foto da Embalagem Secundária',
+  'Foto da Etiqueta da Amostra'
+];
 
-export const REQUIRED_IMAGE_FILES: Record<string, Record<string, string>> = {
+export const REQUIRED_IMAGE_FILES: Record<string, string[]> = {
   "AGULHA HIPODÉRMICA": ASE_IMAGE_REQS,
 };
 
