@@ -86,13 +86,13 @@ export const LAYOUT_MAPPING: Record<string, string> = {
  * Estrutura: { [NomeEnsaio]: { [NomeArquivoExibicao]: [TagBackend] } }
  */
 const ASE_IMAGE_REQS = {
-  'Logotipo do Fabricante': '[logo_fabricante]',
-  'Foto da Embalagem': '[foto_embalagem]',
-  'Foto da Amostra': '[foto_amostra]',
-  'Foto do Lacre OCP': '[foto_lacre_OCP]',
-  'Foto da Embalagem de Transporte': '[foto_embalagem_transporte]',
-  'Foto da Embalagem Secundária': '[foto_embalagem_secundaria]',
-  'Foto da Etiqueta da Amostra': '[foto_etiqueta_amostra]'
+  'logo_fabricante': '[logo_fabricante]',
+  'foto_embalagem': '[foto_embalagem]',
+  'foto_amostra': '[foto_amostra]',
+  'foto_lacre_OCP': '[foto_lacre_OCP]',
+  'foto_embalagem_transporte': '[foto_embalagem_transporte]',
+  'foto_embalagem_secundaria': '[foto_embalagem_secundaria]',
+  'foto_etiqueta_amostra': '[foto_etiqueta_amostra]'
 };
 
 export const REQUIRED_IMAGE_FILES: Record<string, Record<string, string>> = {
