@@ -1,5 +1,5 @@
 from .default_parser import DefaultExcelParser
-from .ase_parser import AseExcelParser
+from .ase_sh_parser import AseShExcelParser
 
 def get_parser_for_layout(layout_name: str):
     """
@@ -13,7 +13,7 @@ def get_parser_for_layout(layout_name: str):
 
     # Mapeamento do nome do Ensaio / Layout -> Classe Especializada
     if 'ASE' in layout_name or 'TESTE' in layout_name:
-        return AseExcelParser()
+        return AseShExcelParser()
 
     # Padrão Fallback
     return DefaultExcelParser()
