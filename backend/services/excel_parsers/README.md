@@ -18,9 +18,25 @@ Isso é regido pela nossa Interface Central (`base_parser.py`) usando `@abstract
 
 ## 📂 Arquivos Chave da Interface
 
-- **`base_parser.py`**: A regra suprema (Contrato). Manda que não importa quantas classes sejam criadas (AseParser, EmcParser, Teste1Parser), todas precisam obrigatoriamente ter uma função que se chame `def parse(self, file_path: str) -> dict`. E precisam devolver um dicionário tipado `{"[TAG_DOCUMENTO]": "VALOR"}`.
+- **`base_parser.py`**: A regra suprema (Contrato). Manda que não importa quantas classes sejam criadas (AseParser, EmcParser, Teste1Parser), todas precisam obrigatoriamente ter uma função que se chame `def parse(self, file_path: str) -> dict`. Além do contrato, a base agora oferece inteligência compartilhada, como o cálculo automático do intervalo de datas do ensaio (`_add_date_range_tags`).
 - **`__init__.py`**: (Roteador Factory). É o Orquestrador Central. É ele quem recebe o _"Layout Detectado"_ e escolhe qual a Instância Especialista correta.
+- **`ase_sh_parser.py`**: Exemplo real de implementação robusta para o layout ASE SH, processando múltiplas abas e aplicando lógicas de extração por coordenadas e mapeamento semântico.
 - **`default_parser.py`**: Nossa tática defensiva. Se houver falha de mapeamento do Frontend, e for jogada uma planilha de layout inexistente e sem programação designada específica, para que a aplicação não quebre, ele entra em campo. Sua técnica varre a planilha cegamente limpando células vazias (`df.dropna()`) e escrevendo um textual literal cru sob a antiga TAG Genérica: `[DADOS_CAPTURADOS_ARQUIVO_UPLOAD]`.
+
+---
+
+## 📅 Inteligência Transversal: Datas de Ensaio
+
+Uma funcionalidade crítica implementada na `BaseExcelParser` é o rastreamento automático de datas.
+
+### Como funciona:
+
+O sistema varre todas as tags geradas pelo seu parser que terminam com `_DATA_EXECUCAO]`.
+Ao final do processamento, ele automaticamente injeta duas tags globais no dicionário:
+- **`[data_ensaio_inicial]`**: A menor data encontrada entre todas as abas.
+- **`[data_ensaio_final]`**: A maior data encontrada entre todas as abas.
+
+Isso desonera o desenvolvedor de calcular manualmente o período do ensaio em cada novo layout.
 
 ---
 
@@ -70,13 +86,17 @@ class XyzExcelParser(BaseExcelParser):
                 val_variancia = "N/A"
                 val_res_medio = "N/A"
             
-            # 4. INSTANCIE A LIGAÇÃO COM O WORD (.docx)
+            # 4. INSTANCIE A LIGAÇÃO COM O WORD (.docx) E CALCULE AS DATAS GLOBAIS
             # O dicionário retornado diz como se espelhar com as [] inseridas no MS Word.
             
             tags_finais = {
                 "[XYZ_VARIANCIA_EXTRAIDA]": val_variancia,
-                "[XYZ_RESSONANCIA_MEDIA]": val_res_medio
+                "[XYZ_RESSONANCIA_MEDIA]": val_res_medio,
+                "[XYZ_DATA_EXECUCAO]": "01/01/2024" # Exemplo de data para cálculo global
             }
+
+            # IMPORTANTE: Sempre chame a inteligência de datas antes do return
+            tags_finais = self._add_date_range_tags(tags_finais)
 
             return tags_finais
             

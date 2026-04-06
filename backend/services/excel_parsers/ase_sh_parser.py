@@ -7,24 +7,6 @@ logger = setup_logger()
 class AseShExcelParser(BaseExcelParser):
     """
     Parser focado no Layout ASE SH.
-
-    Nomenclatura de tags por aba:
-    ┌────────┬────────────────────────────────────────────────────────────┐
-    │  Aba   │  Tags geradas                                              │
-    ├────────┼────────────────────────────────────────────────────────────┤
-    │  2     │  [PH_FLUIDO_CONTROLE]  /  [MEDICAO_N_PH]  (N = 1..32)     │
-    │  3     │  [ABA3_C15]  [ABA3_D15]  [ABA3_{col}{row}] (B22:G53)      │
-    │  5     │  [ABA5_{col}{row}]  — células a definir                    │
-    │  6     │  [ABA6_{col}{row}]  — células a definir                    │
-    │  7     │  [ABA7_{col}{row}]  — células a definir                    │
-    │  8     │  [ABA8_{col}{row}]  — células a definir                    │
-    │  9     │  [ABA9_{col}{row}]  — células a definir                    │
-    │  10    │  [ABA10_{col}{row}] — células a definir                    │
-    │  11    │  [ABA11_{col}{row}] — células a definir                    │
-    │  12    │  [ABA12_{col}{row}] — células a definir                    │
-    │  13    │  [ABA13_{col}{row}] — células a definir                    │
-    └────────┴────────────────────────────────────────────────────────────┘
-
     A aba 4 é deliberadamente ignorada.
     """
 
@@ -73,7 +55,8 @@ class AseShExcelParser(BaseExcelParser):
                 letter = self._col_letter(c)
                 tags[f"[{prefix}_{letter}{r}]"] = self._cell(df, r, c)
         return tags
-
+    
+    # Aba 2 (PH)
     def _extract_aba2_tags(self, df: pd.DataFrame) -> dict:
         tags = {}
 
@@ -87,6 +70,7 @@ class AseShExcelParser(BaseExcelParser):
 
         return tags
 
+    # Aba 3 (Metais extraíveis)
     # Mapa semântico: índice de coluna Excel (1-based) → nome da tag
     _ABA3_COL_NAMES = {
         2: "CHUMBO",     # Coluna B
@@ -117,7 +101,7 @@ class AseShExcelParser(BaseExcelParser):
         return tags
 
     # ──────────────────────────────────────────────
-    #  Aba 5
+    #  Aba 5 (MS-0028930 ISO 80369-20)
     #   Tags de células únicas:
     #     [ABA5_C13]   ← C13
     #     [ABA5_C14]   ← C14
@@ -171,120 +155,176 @@ class AseShExcelParser(BaseExcelParser):
         return tags
 
     # ──────────────────────────────────────────────
-    #  Aba 6  — definir células abaixo
+    #  Aba 6 (Dimensões)  — definir células abaixo
     #   Tags: [ABA6_{col}{row}]
-    # ──────────────────────────────────────────────
-
-    def _extract_aba6_tags(self, df: pd.DataFrame) -> dict:
-        tags = {}
-        # TODO: adicionar as células/ranges da aba 6
-        return tags
-
-    # ──────────────────────────────────────────────
-    #  Aba 7
-    #   Tags de células únicas (linha 20):
-    #     [ABA7_B20]  [ABA7_C20]  [ABA7_D20]  [ABA7_E20]  [ABA7_F20]
-    #
-    #   Tags da matriz B24:E55:
-    #     Formato → [ABA7_{NOME_COLUNA}_{N}]  onde N = 1..32
-    #     Coluna B → [ABA7_COL_B_1]  …  [ABA7_COL_B_32]
-    #     Coluna C → [ABA7_COL_C_1]  …  [ABA7_COL_C_32]
-    #     Coluna D → [ABA7_COL_D_1]  …  [ABA7_COL_D_32]
-    #     Coluna E → [ABA7_COL_E_1]  …  [ABA7_COL_E_32]
-    #   ⚠ Renomeie _ABA7_COL_NAMES abaixo com os nomes reais das colunas
     # ──────────────────────────────────────────────
 
     # Mapa semântico da aba 7: coluna Excel (1-based) → nome da tag
     # Substitua COL_B, COL_C... pelos nomes reais das colunas da planilha
-    _ABA7_COL_NAMES = {
+    _ABA6_COL_NAMES = {
         2: "DIAMETRO_EXTERNO",   # Coluna B — renomear
         3: "RESULTADO1",   # Coluna C — renomear
         4: "DIAMETRO_INTERNO",   # Coluna D — renomear
         5: "RESULTADO2",   # Coluna E — renomear
     }
 
-    def _extract_aba7_tags(self, df: pd.DataFrame) -> dict:
+    def _extract_aba6_tags(self, df: pd.DataFrame) -> dict:
         tags = {}
 
         # --- Células únicas — linha 20 ---
-        tags["[ABA7_DIAMETRO_EXTERNO]"] = self._cell(df, 20, 2)   # B20
-        tags["[ABA7_TOLERANCIO_MINIMA]"] = self._cell(df, 20, 3)   # C20
-        tags["[ABA7_TOLERANCIO_MAXIMA]"] = self._cell(df, 20, 4)   # D20
-        tags["[ABA7_DIAMETRO_INTERNO]"] = self._cell(df, 20, 5)   # E20
-        tags["[ABA7_TIPO_PAREDE]"] = self._cell(df, 20, 6)   # F20
-        tags["[ABA7_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
-        tags["[ABA7_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
-        tags["[ABA7_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3)   # C15
-        tags["[ABA7_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4)   # D15
+        tags["[ABA6_DIAMETRO_EXTERNO]"] = self._cell(df, 20, 2)   # B20
+        tags["[ABA6_TOLERANCIO_MINIMA]"] = self._cell(df, 20, 3)   # C20
+        tags["[ABA6_TOLERANCIO_MAXIMA]"] = self._cell(df, 20, 4)   # D20
+        tags["[ABA6_DIAMETRO_INTERNO]"] = self._cell(df, 20, 5)   # E20
+        tags["[ABA6_TIPO_PAREDE]"] = self._cell(df, 20, 6)   # F20
+        tags["[ABA6_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
+        tags["[ABA6_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
+        tags["[ABA6_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3)   # C15
+        tags["[ABA6_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4)   # D15
 
         # --- Matriz B24:E55 com nomes semânticos ---
         # Linha 24 = medição nº 1, linha 55 = medição nº 32
         for excel_row in range(24, 56):                        # linhas 24 a 55
             medicao_num = excel_row - 23                        # 1 a 32
-            for excel_col, col_name in self._ABA7_COL_NAMES.items():
-                tag_name = f"[ABA7_{col_name}_{medicao_num}]"
+            for excel_col, col_name in self._ABA6_COL_NAMES.items():
+                tag_name = f"[ABA6_{col_name}_{medicao_num}]"
                 tags[tag_name] = self._cell(df, excel_row, excel_col)
 
         return tags
 
+    #  Aba 7 (Rigidez)
+    def _extract_aba7_tags(self, df: pd.DataFrame) -> dict:
+        tags = {}
+
+        # --- Células únicas — linha 20 ---
+        tags["[ABA7_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
+        tags["[ABA7_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
+        tags["[ABA7_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3)   # C15
+        tags["[ABA7_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4)   # D15
+        tags["[ABA7_DIAMETRO_EXTERNO]"] = self._cell(df, 18, 2) #B18
+        tags["[ABA7_TIPO_PAREDE]"] = self._cell(df, 18, 3) #C18
+        tags["[ABA7_VAO_AJUSTADO]"] = self._cell(df, 18, 4) #D18
+        tags["[ABA7_FORCA_DOBRAMENTO]"] = self._cell(df, 18, 5) #E18
+        tags["[ABA7_DEFLEXAO_MAXIMA]"] = self._cell(df, 18, 6) #F18
+
+        # --- Matriz E21:E52 ---
+        # Extrai os valores da coluna E (DEFLEXAO_MEDIDA), linhas 21 a 52
+        for excel_row in range(21, 53):
+            medicao_num = excel_row - 20
+            tags[f"[ABA7_DEFLEXAO_MEDIDA_{medicao_num}]"] = self._cell(df, excel_row, 5)
+
+        return tags
+
     # ──────────────────────────────────────────────
-    #  Aba 8  — definir células abaixo
+    #  Aba 8 (Ressistência a quebra)  — definir células abaixo
     #   Tags: [ABA8_{col}{row}]
     # ──────────────────────────────────────────────
 
     def _extract_aba8_tags(self, df: pd.DataFrame) -> dict:
         tags = {}
-        # TODO: adicionar as células/ranges da aba 8
+        
+        tags["[ABA8_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
+        tags["[ABA8_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
+        tags["[ABA8_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3)   # C15
+        tags["[ABA8_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4)   # D15
+        tags["[DISTANCIA_VAO]"] = self._cell(df, 19, 2)   # B19
+        tags["[TIPO_PAREDE]"] = self._cell(df, 19, 3)   # C19
+        tags["[ÂNGULO_APLICADO]"] = self._cell(df, 19, 4)   # D19
+
+        # --- Matriz B22:B53 ---
+        # Extrai os valores da coluna B, linhas 22 a 53
+        for excel_row in range(22, 54):
+            medicao_num = excel_row - 21
+            tags[f"[ABA8_VALOR_{medicao_num}]"] = self._cell(df, excel_row, 2)
+        
         return tags
 
     # ──────────────────────────────────────────────
-    #  Aba 9  — definir células abaixo
+    #  Aba 9 (Ressistividade à Corrosão)  — definir células abaixo
     #   Tags: [ABA9_{col}{row}]
     # ──────────────────────────────────────────────
 
     def _extract_aba9_tags(self, df: pd.DataFrame) -> dict:
         tags = {}
-        # TODO: adicionar as células/ranges da aba 9
+        
+        tags["[ABA9_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
+        tags["[ABA9_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
+        tags["[ABA9_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3)   # C15
+        tags["[ABA9_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4)   # D15
+        tags["[ABA9_TEMPO_ENSAIO_INICIAL]"] = self._cell(df, 16, 3)   # C16
+        tags["[ABA9_TEMPO_ENSAIO_FINAL]"] = self._cell(df, 16, 4)   # D16
+        tags["[ABA9_TIPO_DE_PRODUTO]"] = self._cell(df, 17, 3)   # C17
+        tags["[ABA9_NUMEROS]"] = self._cell(df, 17, 4)   # D17
+        
+        # --- Matriz B20:B51 ---
+        # Extrai os valores da coluna B, linhas 20 a 51
+        for excel_row in range(20, 52):
+            medicao_num = excel_row - 19
+            tags[f"[ABA9_VALOR_{medicao_num}]"] = self._cell(df, excel_row, 2)
+
         return tags
 
-    # ──────────────────────────────────────────────
-    #  Aba 10 — definir células abaixo
-    #   Tags: [ABA10_{col}{row}]
-    # ──────────────────────────────────────────────
-
+    #  Aba 10 (Toler. ISO) — definir células abaixo
     def _extract_aba10_tags(self, df: pd.DataFrame) -> dict:
         tags = {}
-        # TODO: adicionar as células/ranges da aba 10
+        
+        tags["[ABA10_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
+        tags["[ABA10_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
+        tags["[ABA10_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3)   # C15
+        tags["[ABA10_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4)   # D15
+        tags["[ABA10_COMPRIMENTO_CANULA]"] = self._cell(df, 21, 2)   # B21
+        tags["[ABA10_TOLERANCIA__MAXIMA]"] = self._cell(df, 22, 3)   # C22
+        tags["[ABA10_TOLERANCIA_MINIMA]"] = self._cell(df, 22, 4)   # D22
+        
+        # --- Matriz B26:B57 ---
+        # Extrai os valores da coluna B, linhas 26 a 57
+        for excel_row in range(26, 58):
+            medicao_num = excel_row - 25
+            tags[f"[ABA10_VALOR_{medicao_num}]"] = self._cell(df, excel_row, 2)
+        
         return tags
 
-    # ──────────────────────────────────────────────
-    #  Aba 11 — definir células abaixo
-    #   Tags: [ABA11_{col}{row}]
-    # ──────────────────────────────────────────────
-
+    #  Aba 11 (Canhão e cânula) — definir células abaixo
     def _extract_aba11_tags(self, df: pd.DataFrame) -> dict:
         tags = {}
-        # TODO: adicionar as células/ranges da aba 11
+        
+        tags["[ABA11_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
+        tags["[ABA11_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
+        tags["[ABA11_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3)   # C15
+        tags["[ABA11_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4)   # D15
+        tags["[ABA11_DIAMETRO_EXTERNO]"] = self._cell(df, 18, 2)   # B18
+        tags["[ABA11_FORCA_MINIMA]"] = self._cell(df, 18, 3)   # C18
+        
+        # --- Matriz B22:B53 ---
+        # Extrai os valores da coluna B, linhas 22 a 53
+        for excel_row in range(22, 54):
+            medicao_num = excel_row - 21
+            tags[f"[ABA11_VALOR_{medicao_num}]"] = self._cell(df, excel_row, 2)
+        
         return tags
 
     # ──────────────────────────────────────────────
-    #  Aba 12 — definir células abaixo
+    #  Aba 12 (Diametro interno)— definir células abaixo
     #   Tags: [ABA12_{col}{row}]
     # ──────────────────────────────────────────────
 
     def _extract_aba12_tags(self, df: pd.DataFrame) -> dict:
         tags = {}
-        # TODO: adicionar as células/ranges da aba 12
-        return tags
-
-    # ──────────────────────────────────────────────
-    #  Aba 13 — definir células abaixo
-    #   Tags: [ABA13_{col}{row}]
-    # ──────────────────────────────────────────────
-
-    def _extract_aba13_tags(self, df: pd.DataFrame) -> dict:
-        tags = {}
-        # TODO: adicionar as células/ranges da aba 13
+        
+        tags["[ABA12_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
+        tags["[ABA12_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
+        tags["[ABA12_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3)   # C15
+        tags["[ABA12_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4)   # D15
+        tags["[ABA12_DIAMETRO_EXTERNO]"] = self._cell(df, 21, 2)   # B21
+        tags["[ABA12_DIAMETRO_PINO]"] = self._cell(df, 21, 3)   # C21
+        tags["[ABA12_TIPO_PAREDE]"] = self._cell(df, 21, 4)   # D21
+        
+        # --- Matriz B25:B56 ---
+        # Extrai os valores da coluna B, linhas 25 a 56
+        for excel_row in range(25, 57):
+            medicao_num = excel_row - 24
+            tags[f"[ABA12_VALOR_{medicao_num}]"] = self._cell(df, excel_row, 2)
+        
         return tags
 
     # ──────────────────────────────────────────────
@@ -313,8 +353,6 @@ class AseShExcelParser(BaseExcelParser):
             return self._extract_aba11_tags(df)
         elif aba_num == 12:
             return self._extract_aba12_tags(df)
-        elif aba_num == 13:
-            return self._extract_aba13_tags(df)
         else:
             logger.warning(f"Aba {aba_num} não possui extrator definido, pulando.")
             return {}
@@ -361,6 +399,10 @@ class AseShExcelParser(BaseExcelParser):
             logger.info(
                 f"[ASE_SH_PARSER EXTRACTION] Concluída. {len(extracted_tags)} tags geradas."
             )
+
+            # Chama o utilitário herdado para calcular intervalo de datas
+            extracted_tags = self._add_date_range_tags(extracted_tags)
+            
             return extracted_tags
 
         except Exception as e:
