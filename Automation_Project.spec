@@ -36,3 +36,20 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
 )
+
+import shutil
+import os
+
+dist_path = 'dist/Automation_Project'
+desktop_path = 'Desktop'
+
+if os.path.exists(dist_path):
+    if not os.path.exists(desktop_path):
+        os.makedirs(desktop_path)
+    # Se for um diretório (onedir), copia o conteúdo. Se for um arquivo (onefile), move o arquivo.
+    if os.path.isdir(dist_path):
+        shutil.copytree(dist_path, os.path.join(desktop_path, 'Automation_Project'), dirs_exist_ok=True)
+    else:
+        shutil.copy2(dist_path, desktop_path)
+    print(f"Build copiado para {desktop_path}")
+
