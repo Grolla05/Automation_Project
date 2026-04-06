@@ -84,17 +84,21 @@ export const LAYOUT_MAPPING: Record<string, string> = {
  * Requisitos de nome de arquivo de imagem por ensaio.
  * Estrutura: { [NomeEnsaio]: string[] }
  */
-const ASE_IMAGE_REQS = [
-  'Logotipo do Fabricante',
-  'Foto da Embalagem',
-  'Foto da Amostra',
-  'Foto do Lacre OCP',
-  'Foto da Embalagem de Transporte',
-  'Foto da Embalagem Secundária',
-  'Foto da Etiqueta da Amostra'
+
+// Agora cada requisito pode ser string ou objeto com sinônimos
+export type ImageRequirement = string | { label: string, keywords: string[] };
+
+const ASE_IMAGE_REQS: ImageRequirement[] = [
+  { label: 'Logotipo do Fabricante', keywords: ['logotipo', 'logo', 'fabricante'] },
+  { label: 'Foto da Embalagem', keywords: ['foto', 'embalagem'] },
+  { label: 'Foto da Amostra', keywords: ['foto', 'amostra'] },
+  { label: 'Foto do Lacre OCP', keywords: ['foto', 'lacre', 'ocp'] },
+  { label: 'Foto da Embalagem de Transporte', keywords: ['foto', 'embalagem', 'transporte'] },
+  { label: 'Foto da Embalagem Secundária', keywords: ['foto', 'embalagem', 'secundaria'] },
+  { label: 'Foto da Etiqueta da Amostra', keywords: ['foto', 'etiqueta', 'amostra'] },
 ];
 
-export const REQUIRED_IMAGE_FILES: Record<string, string[]> = {
+export const REQUIRED_IMAGE_FILES: Record<string, ImageRequirement[]> = {
   "AGULHA HIPODÉRMICA": ASE_IMAGE_REQS,
 };
 

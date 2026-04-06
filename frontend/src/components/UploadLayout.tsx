@@ -10,7 +10,7 @@ import Button from './ui/Button';
 import Card from './ui/Card';
 import { api } from '../services/api';
 import { createUploadSchema, type UploadFormData } from '../schemas/uploadSchema';
-import { REQUIRED_IMAGE_FILES } from '../lib/data';
+import { REQUIRED_IMAGE_FILES, type ImageRequirement } from '../lib/data';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +41,7 @@ const VALID_TYPES = [
 const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
   const { sector, testType, tests } = useWizardStore();
   const [isHovering, setIsHovering] = useState(false);
+  const [isDraggingInvalid, setIsDraggingInvalid] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -49,14 +50,21 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
   const isASE = testType === 'ASE';
   
   // Obtém lista de requisitos de imagem baseado nos ensaios selecionados
-  const getRequiredFilesList = (): string[] => {
-    let list: string[] = [];
+  const getRequiredFilesList = (): ImageRequirement[] => {
+    let list: ImageRequirement[] = [];
     tests?.forEach(test => {
       if (REQUIRED_IMAGE_FILES[test]) {
         list = [...list, ...REQUIRED_IMAGE_FILES[test]];
       }
     });
-    return [...new Set(list)]; // Remove duplicados se houver
+    // Remove duplicados por label
+    const seen = new Set();
+    return list.filter(req => {
+      const label = typeof req === 'string' ? req : req.label;
+      if (seen.has(label)) return false;
+      seen.add(label);
+      return true;
+    });
   };
 
   const dynamicRequiredNames = getRequiredFilesList();
@@ -81,13 +89,25 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
 
   const files = watch('files');
 
-  const hasFile = (reqName: string): boolean =>
+  const hasFile = (req: ImageRequirement): boolean =>
     files.some((f) => {
-      const nameWithoutExt = f.name.split('.').slice(0, -1).join('.');
-      return (
-        nameWithoutExt.toLowerCase() === reqName.toLowerCase() ||
-        f.name.toLowerCase().startsWith(reqName.toLowerCase())
-      );
+      const normalize = (str: string) =>
+        str
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, ' ')
+          .trim();
+
+      const fileName = normalize(f.name.split('.').slice(0, -1).join('.'));
+      let keywords: string[];
+      if (typeof req === 'string') {
+        keywords = normalize(req).split(' ').filter(Boolean);
+      } else {
+        keywords = req.keywords;
+      }
+      // Todas as palavras-chave precisam estar presentes no nome do arquivo
+      return keywords.every(kw => fileName.includes(kw));
     });
 
   const hasExcel = (): boolean => files.some(isExcelFile);
@@ -102,15 +122,7 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
 
     // Requisitos específicos dinâmicos
     if (dynamicRequiredNames.length > 0) {
-      const allMet = dynamicRequiredNames.every(reqName => 
-        files.some(f => {
-          const nameWithoutExt = f.name.split('.').slice(0, -1).join('.');
-          return (
-            nameWithoutExt.toLowerCase() === reqName.toLowerCase() ||
-            f.name.toLowerCase().startsWith(reqName.toLowerCase())
-          );
-        })
-      );
+      const allMet = dynamicRequiredNames.every(req => hasFile(req));
       if (!allMet) return false;
     }
 
@@ -128,15 +140,11 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
     if (!hasExcelFile) errors.push('A Planilha de Registro (.xlsx/xls) é obrigatória.');
 
     if (dynamicRequiredNames.length > 0) {
-      dynamicRequiredNames.forEach(reqName => {
-        const met = files.some(f => {
-          const nameWithoutExt = f.name.split('.').slice(0, -1).join('.');
-          return (
-            nameWithoutExt.toLowerCase() === reqName.toLowerCase() ||
-            f.name.toLowerCase().startsWith(reqName.toLowerCase())
-          );
-        });
-        if (!met) errors.push(`Arquivo obrigatório ausente: ${reqName}`);
+      dynamicRequiredNames.forEach(req => {
+        if (!hasFile(req)) {
+          const label = typeof req === 'string' ? req : req.label;
+          errors.push(`Arquivo obrigatório ausente: ${label}`);
+        }
       });
     }
 
@@ -205,13 +213,32 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsHovering(true);
+
+    // Validação imediata de tipo durante o drag
+    const items = Array.from(e.dataTransfer.items);
+    const hasInvalid = items.some(item => {
+      if (item.kind === 'file') {
+        const type = item.type;
+        const name = (item as any).name || ''; // name nem sempre está disponível no dragover em alguns browsers, mas o type sim
+        const isExcel = type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
+                        type === 'application/vnd.ms-excel' ||
+                        name.endsWith('.xlsx') || name.endsWith('.xls');
+        return !VALID_TYPES.includes(type) && !isExcel;
+      }
+      return false;
+    });
+    setIsDraggingInvalid(hasInvalid);
   };
 
-  const handleDragLeave = () => setIsHovering(false);
+  const handleDragLeave = () => {
+    setIsHovering(false);
+    setIsDraggingInvalid(false);
+  };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsHovering(false);
+    setIsDraggingInvalid(false);
     addFiles(Array.from(e.dataTransfer.files));
   };
 
@@ -277,11 +304,12 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
                 </div>
 
                 {/* Requisitos Específicos Adicionais Dinâmicos */}
-                {dynamicRequiredNames.map((reqName) => {
-                  const isMet = hasFile(reqName);
+                {dynamicRequiredNames.map((req) => {
+                  const isMet = hasFile(req);
+                  const label = typeof req === 'string' ? req : req.label;
                   return (
                     <div
-                      key={reqName}
+                      key={label}
                       className={twMerge(
                         'flex items-center space-x-3 p-3 rounded-lg border transition-colors',
                         isMet
@@ -292,7 +320,7 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
                       {isMet
                         ? <CheckCircle2 size={18} className="text-green-500" />
                         : <Circle size={18} className="text-apple-secondary/50" />}
-                      <span className="font-medium text-sm">{reqName}</span>
+                      <span className="font-medium text-sm">{String(label)}</span>
                     </div>
                   );
                 })}
@@ -307,17 +335,31 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
             className={twMerge(
-              'relative border-2 border-dashed rounded-apple-lg p-12 flex flex-col items-center justify-center transition-all cursor-pointer',
+              'relative border-2 border-dashed rounded-apple-lg p-12 flex flex-col items-center justify-center transition-all cursor-pointer overflow-hidden',
               isHovering
-                ? 'border-apple-blue bg-apple-blue/5 scale-[1.01]'
+                ? isDraggingInvalid 
+                  ? 'border-red-500 bg-red-500/5 scale-[1.01]' 
+                  : 'border-apple-blue bg-apple-blue/5 scale-[1.01]'
                 : 'border-apple-gray bg-apple-bg hover:border-apple-secondary/50',
               errors.files ? 'border-red-500 bg-red-50 dark:bg-red-500/10' : ''
             )}
           >
+            {/* Background Blur effect on hover */}
+            <AnimatePresence>
+              {isHovering && !isDraggingInvalid && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 bg-apple-blue/10 backdrop-blur-[2px] z-0"
+                />
+              )}
+            </AnimatePresence>
+
             <motion.div
               animate={errors.files ? { x: [-10, 10, -10, 10, 0] } : {}}
               transition={{ duration: 0.4 }}
-              className="flex flex-col items-center"
+              className="flex flex-col items-center relative z-10"
             >
               <input
                 type="file"
@@ -327,17 +369,32 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
                 ref={fileInputRef}
                 onChange={handleFileChange}
               />
-              <div className={twMerge(
-                'w-16 h-16 rounded-full shadow-apple flex items-center justify-center mb-4 transition-colors',
-                errors.files ? 'bg-red-500 text-white' : 'bg-white dark:bg-apple-gray text-apple-blue'
-              )}>
+              <motion.div 
+                animate={isHovering && !isDraggingInvalid ? { y: -10 } : { y: 0 }}
+                className={twMerge(
+                  'w-16 h-16 rounded-full shadow-apple flex items-center justify-center mb-4 transition-colors',
+                  errors.files || (isHovering && isDraggingInvalid) 
+                    ? 'bg-red-500 text-white' 
+                    : 'bg-white dark:bg-apple-gray text-apple-blue'
+                )}
+              >
                 <Upload size={28} />
-              </div>
-              <p className={twMerge('font-medium text-lg transition-colors', errors.files ? 'text-red-500' : 'text-apple-text')}>
-                {errors.files ? 'Arquivo inválido!' : 'Arraste arquivos aqui'}
+              </motion.div>
+              <p className={twMerge(
+                'font-medium text-lg transition-colors', 
+                errors.files || (isHovering && isDraggingInvalid) ? 'text-red-500' : 'text-apple-text'
+              )}>
+                {isHovering 
+                  ? isDraggingInvalid ? 'Formato não suportado!' : 'Solte para enviar' 
+                  : errors.files ? 'Arquivo inválido!' : 'Arraste arquivos aqui'}
               </p>
-              <p className={twMerge('text-sm mt-1 transition-colors', errors.files ? 'text-red-400' : 'text-apple-secondary')}>
-                {errors.files ? 'Revise os requisitos de arquivo' : 'ou clique para navegar'}
+              <p className={twMerge(
+                'text-sm mt-1 transition-colors', 
+                errors.files || (isHovering && isDraggingInvalid) ? 'text-red-400' : 'text-apple-secondary'
+              )}>
+                {isHovering 
+                  ? isDraggingInvalid ? 'Verifique os tipos permitidos' : 'PDF, PNG, JPG ou Excel'
+                  : errors.files ? 'Revise os requisitos de arquivo' : 'ou clique para navegar'}
               </p>
             </motion.div>
           </div>
@@ -384,13 +441,14 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
 
           {/* File List */}
           <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
-            <AnimatePresence>
+            <AnimatePresence initial={false}>
               {files.map((file, index) => (
                 <motion.div
                   key={`${file.name}-${index}`}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                   className="flex items-center justify-between p-3 bg-apple-bg rounded-apple border border-apple-gray group"
                 >
                   <div className="flex items-center space-x-3">
@@ -415,9 +473,10 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); removeFile(index); }}
-                    className="p-1 hover:bg-red-50 hover:text-red-500 rounded-full text-apple-secondary transition-colors"
+                    className="p-2 hover:bg-red-50 hover:text-red-500 rounded-full text-apple-secondary transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                    aria-label="Remover arquivo"
                   >
-                    <X size={16} />
+                    <X size={18} />
                   </button>
                 </motion.div>
               ))}
@@ -431,10 +490,11 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
               <Button
                 variant="blue"
                 type="submit"
-                disabled={isProcessing || !!errors.files || files.length === 0 || !areRequirementsMet()}
+                isLoading={isProcessing}
+                disabled={!!errors.files || files.length === 0 || !areRequirementsMet()}
                 className="px-12"
               >
-                {isProcessing ? 'Verificando...' : `Processar${files.length > 0 ? ` (${files.length})` : ''}`}
+                Processar{files.length > 0 ? ` (${files.length})` : ''}
               </Button>
             </div>
           </div>

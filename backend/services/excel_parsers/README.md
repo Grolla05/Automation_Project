@@ -29,8 +29,7 @@ Isso é regido pela nossa Interface Central (`base_parser.py`) usando `@abstract
 
 Uma funcionalidade crítica implementada na `BaseExcelParser` é o rastreamento automático de datas.
 
-### Como funciona:
-
+### Como funciona
 O sistema varre todas as tags geradas pelo seu parser que terminam com `_DATA_EXECUCAO]`.
 Ao final do processamento, ele automaticamente injeta duas tags globais no dicionário:
 - **`[data_ensaio_inicial]`**: A menor data encontrada entre todas as abas.
