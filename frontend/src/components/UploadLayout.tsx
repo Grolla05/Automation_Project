@@ -39,7 +39,7 @@ const VALID_TYPES = [
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
-  const { sector, testType, tests } = useWizardStore();
+  const { testType, tests } = useWizardStore();
   const [isHovering, setIsHovering] = useState(false);
   const [isDraggingInvalid, setIsDraggingInvalid] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -155,7 +155,7 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
     const reqErrors = validateRequirements(data.files);
     if (reqErrors.length > 0) {
       toast.error(reqErrors[0]);
-      setApiError(reqErrors[0]); // Mostra o primeiro erro de requisito
+      setApiError(reqErrors[0]);
       setTimeout(() => setApiError(null), 4000);
       return;
     }
@@ -165,15 +165,61 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
     try {
       await api.checkLayout(tests ?? []);
       toast.success('Layout validado com sucesso!');
-      onNext(data.files);
+      // Renomeia arquivos de imagem para o tagName exato antes de enviar
+      onNext(renameFilesToTags(data.files));
     } catch (err) {
-      // O erro já é tratado com toast.error dentro do api.checkLayout
       const message = err instanceof Error ? err.message : 'Layout não cadastrado';
       setApiError(message);
       setTimeout(() => setApiError(null), 4000);
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  /**
+   * Renomeia cada arquivo de imagem para o `tagName` exato do requisito
+   * que ele satisfaz. Isso garante que o backend possa mapear
+   * nome-do-arquivo → placeholder-no-docx sem ambiguidade.
+   *
+   * Ex: usuário envia 'minha_foto_embalagem_v2.jpg'
+   *     matched com req { tagName: 'foto_embalagem' }
+   *     arquivo enviado como  'foto_embalagem.jpg'
+   */
+  const renameFilesToTags = (originalFiles: File[]): File[] => {
+    const usedTagNames = new Set<string>();
+
+    return originalFiles.map((file) => {
+      // Só renomeia imagens — PDF e Excel mantêm seu nome original
+      const isImage = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/bmp'].includes(file.type);
+      if (!isImage) return file;
+
+      // Encontra o primeiro requisito dinâmico que este arquivo satisfaz
+      // e cujo tagName ainda não foi usado (evita duplicatas)
+      for (const req of dynamicRequiredNames) {
+        if (typeof req === 'string') continue;
+
+        const { tagName } = req;
+        if (usedTagNames.has(tagName)) continue;
+
+        if (hasFileMatch(file, req)) {
+          usedTagNames.add(tagName);
+          const ext = file.name.split('.').pop() ?? 'jpg';
+          const newName = `${tagName}.${ext}`;
+          return new File([file], newName, { type: file.type });
+        }
+      }
+
+      // Não bateu com nenhum requisito dinâmico — mantém nome original
+      return file;
+    });
+  };
+
+  /** Verifica se um arquivo específico satisfaz um requisito dinâmico */
+  const hasFileMatch = (file: File, req: { label: string; keywords: string[]; tagName: string }): boolean => {
+    const normalize = (str: string) =>
+      str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+    const fileName = normalize(file.name.split('.').slice(0, -1).join('.'));
+    return req.keywords.every((kw) => fileName.includes(kw));
   };
 
   const addFiles = async (newFiles: File[]) => {

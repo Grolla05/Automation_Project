@@ -107,17 +107,27 @@ class DocumentService:
                             tags_imagem_list.append({"tag": timg, "caminho": caminho})
             
             # Regex para dividir a string preservando as tags (ex: 'Algo [TAG] a mais' -> ['Algo ', '[TAG]', ' a mais'])
-            padrao_tags = re.compile('(' + '|'.join(map(re.escape, tags_texto.keys())) + ')')
+            # Guard: se não houver tags de texto, evita compilar um regex vazio '()' que
+            # causaria re.split explodir em infinitos fragmentos e travar a aplicação.
+            if not tags_texto:
+                padrao_tags = None
+            else:
+                padrao_tags = re.compile('(' + '|'.join(map(re.escape, tags_texto.keys())) + ')')
 
             def replace_in_paragraphs(paragraphs):
                 for paragraph in paragraphs:
+                    p_text = paragraph.text
+                    if not p_text:
+                        continue
+
                     # Identifica se há tag de imagem
                     for img_config in tags_imagem_list:
                         tag_img = img_config["tag"]
                         caminho_imagem_tg = img_config["caminho"]
                         
-                        if tag_img in paragraph.text:
-                            paragraph.text = paragraph.text.replace(tag_img, '')
+                        if tag_img in p_text:
+                            p_text = p_text.replace(tag_img, '')
+                            paragraph.text = p_text
                             # Adiciona a imagem no parágrafo
                             if caminho_imagem_tg and os.path.exists(caminho_imagem_tg) and caminho_imagem_tg.lower().endswith(('.png', '.jpg', '.jpeg')):
                                 run = paragraph.add_run()
@@ -127,31 +137,35 @@ class DocumentService:
                                     logger.error(f"Erro ao inserir imagem {caminho_imagem_tg}: {str(e)}")
 
                     # Substituição de textos com Grifo Amarelo
-                    if any(t in paragraph.text for t in tags_texto.keys()):
-                        texto_original = paragraph.text
+                    if padrao_tags and any(t in p_text for t in tags_texto.keys()):
+                        texto_original = p_text
                         paragraph.clear() # Limpa os runs originais do parágrafo
                         
                         partes = padrao_tags.split(texto_original)
                         for parte in partes:
                             if parte in tags_texto:
                                 # É uma das nossas Tags! Vamos injetar o dado e grifar de amarelo
-                                run_dados = paragraph.add_run(tags_texto[parte])
+                                run_dados = paragraph.add_run(str(tags_texto[parte]))
                                 run_dados.font.highlight_color = WD_COLOR_INDEX.YELLOW
                             elif parte:
                                 # Texto normal em volta das tags, apenas adicionamos de volta
                                 paragraph.add_run(parte)
 
             # Processa parágrafos soltos
+            logger.info("Processando parágrafos soltos...")
             replace_in_paragraphs(doc.paragraphs)
             
             # Processa parágrafos dentro de tabelas
-            for table in doc.tables:
-                for row in table.rows:
+            logger.info(f"Processando tabelas... (Total: {len(doc.tables)})")
+            for t_idx, table in enumerate(doc.tables):
+                logger.info(f"  -> Tabela {t_idx+1}/{len(doc.tables)} com {len(table.rows)} linhas.")
+                for r_idx, row in enumerate(table.rows):
                     for cell in row.cells:
                         replace_in_paragraphs(cell.paragraphs)
             
             # 4. Salva o resultado
             output_path = os.path.join(self.output_dir, filename)
+            logger.info("Salvando arquivo final ...")
             doc.save(output_path)
             
             logger.info(f"Documento gerado com sucesso em: {output_path}")

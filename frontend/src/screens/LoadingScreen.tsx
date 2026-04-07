@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Navigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import Card from '../components/ui/Card';
 import { api } from '../services/api';
 import { useWizardStore } from '../hooks/useWizardStore';
@@ -65,10 +66,13 @@ const LoadingScreen = () => {
             navigate('/result');
           }, 800);
         }
-      } catch (err) {
+      } catch (err: any) {
         if (isMountedRef.current) {
-          setStatus('Erro no processamento.');
+          const errorMessage = err?.message || 'Erro desconhecido no processamento.';
+          setStatus(`❌ ${errorMessage}`);
+          clearInterval(timer);
           console.error('OCR API error:', err);
+          toast.error(errorMessage, { duration: 8000 });
         }
       }
     };

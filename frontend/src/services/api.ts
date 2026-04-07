@@ -126,6 +126,12 @@ const apiCore = {
     if (!job_id) throw new Error("Falha ao iniciar processamento (Job ID não recebido).");
 
     // 2. Inicia o Polling de status
+    // networkErrors: contador de falhas de rede consecutivas.
+    // Erros transitórios (timeout, conexão) são tolerados até MAX_NETWORK_ERRORS
+    // antes de abortar. Erros reais do job (status: 'error') abortam imediatamente.
+    let networkErrors = 0;
+    const MAX_NETWORK_ERRORS = 5;
+
     while (true) {
       try {
         const statusResponse = await axiosInstance.get<{
@@ -135,6 +141,9 @@ const apiCore = {
           report_path?: string;
           error?: string;
         }>(`/status/${job_id}`);
+
+        // Resposta bem-sucedida reset o contador de erros de rede
+        networkErrors = 0;
 
         const data = statusResponse.data;
 
@@ -150,15 +159,31 @@ const apiCore = {
         }
 
         if (data.status === 'error') {
+          // Erro real do job — aborta imediatamente
           throw new Error(data.error || "Erro desconhecido no processamento.");
         }
 
         // Espera 1.5s antes da próxima consulta para evitar sobrecarga
         await new Promise(resolve => setTimeout(resolve, 1500));
-        
-      } catch (error) {
-        console.error("Erro no polling de status:", error);
-        throw error;
+
+      } catch (error: any) {
+        // Erros lançados explicitamente pelo código de lógica (job error, job_id inválido)
+        // NÃO são erros Axios — propagamos imediatamente para o caller.
+        if (!error?.isAxiosError) {
+          throw error;
+        }
+
+        // Erro de rede/HTTP transitório (Axios) — tenta novamente até o limite
+        networkErrors++;
+        console.warn(`[API] Erro de rede no polling (tentativa ${networkErrors}/${MAX_NETWORK_ERRORS}):`, error?.message);
+
+        if (networkErrors >= MAX_NETWORK_ERRORS) {
+          console.error("[API] Limite de erros de rede atingido. Abortando polling.");
+          throw new Error("Não foi possível obter o status do processamento após várias tentativas.");
+        }
+
+        // Backoff progressivo: 2s, 3s, 4s...
+        await new Promise(resolve => setTimeout(resolve, 1500 + networkErrors * 500));
       }
     }
   },
