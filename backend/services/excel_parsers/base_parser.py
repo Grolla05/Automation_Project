@@ -26,7 +26,7 @@ class BaseExcelParser(ABC):
         # Procura por qualquer tag que contenha DATA_EXECUCAO
         # Ex: [ABA3_DATA_EXECUCAO], [ABA5_DATA_EXECUCAO], etc.
         for tag_name, val in tags.items():
-            if "_DATA_EXECUCAO]" in tag_name:
+            if "_DATA_EXECUCAO" in tag_name:
                 dt = self._parse_date(val)
                 if dt:
                     dates.append(dt)
@@ -61,3 +61,18 @@ class BaseExcelParser(ABC):
             except (ValueError, TypeError):
                 continue
         return None
+
+    def _extract_numeric_value(self, value: str) -> str:
+        """
+        Extrai apenas o valor numérico de uma string (ex: 'Temperatura (C°): 25' -> '25').
+        Suporta números inteiros e decimais (com ponto ou vírgula).
+        """
+        if not value or value == "N/A":
+            return "N/A"
+        
+        # Regex para encontrar um padrão numérico (ex: 25, 25.5, 25,5)
+        match = re.search(r"(\d+[\.,]?\d*)", value)
+        if match:
+            return match.group(1).replace(",", ".")  # Normaliza para ponto se necessário
+        
+        return value

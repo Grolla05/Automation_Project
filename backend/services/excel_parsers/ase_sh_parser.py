@@ -85,8 +85,8 @@ class AseShExcelParser(BaseExcelParser):
         tags = {}
 
         # --- Células únicas ---
-        tags["[ABA3_Temperatura_Relativa]"] = self._cell(df, 15, 3)   # C15
-        tags["[ABA3_Umidade_Relativa]"] = self._cell(df, 15, 4)   # D15
+        tags["[ABA3_Temperatura_Relativa]"] = self._extract_numeric_value(self._cell(df, 15, 3))   # C15
+        tags["[ABA3_Umidade_Relativa]"] = self._extract_numeric_value(self._cell(df, 15, 4))   # D15
         tags["[ABA3_EQUIPAMENTOS_UTILIZADOS]"] = self._cell(df, 13, 3)   # C15
         tags["[ABA3_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # D15
 
@@ -138,8 +138,8 @@ class AseShExcelParser(BaseExcelParser):
         # --- Células únicas ---
         tags["[ABA5_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
         tags["[ABA5_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
-        tags["[ABA5_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3)   # C15
-        tags["[ABA5_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4)   # D15
+        tags["[ABA5_TEMPERATURA_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 3))   # C15
+        tags["[ABA5_UMIDADE_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 4))   # D15
         tags["[ABA5_VOLUME]"] = self._cell(df, 18, 3)   # C18
         tags["[ABA5_LIMITE_PA]"] = self._cell(df, 19, 3)   # C19
         tags["[ABA5_PRESSAO_MIN]"] = self._cell(df, 18, 6)   # F18
@@ -179,8 +179,8 @@ class AseShExcelParser(BaseExcelParser):
         tags["[ABA6_TIPO_PAREDE]"] = self._cell(df, 20, 6)   # F20
         tags["[ABA6_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
         tags["[ABA6_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
-        tags["[ABA6_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3)   # C15
-        tags["[ABA6_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4)   # D15
+        tags["[ABA6_TEMPERATURA_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 3))   # C15
+        tags["[ABA6_UMIDADE_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 4))   # D15
 
         # --- Matriz B24:E55 com nomes semânticos ---
         # Linha 24 = medição nº 1, linha 55 = medição nº 32
@@ -199,8 +199,8 @@ class AseShExcelParser(BaseExcelParser):
         # --- Células únicas — linha 20 ---
         tags["[ABA7_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
         tags["[ABA7_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
-        tags["[ABA7_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3)   # C15
-        tags["[ABA7_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4)   # D15
+        tags["[ABA7_TEMPERATURA_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 3))   # C15
+        tags["[ABA7_UMIDADE_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 4))   # D15
         tags["[ABA7_DIAMETRO_EXTERNO]"] = self._cell(df, 18, 2) #B18
         tags["[ABA7_TIPO_PAREDE]"] = self._cell(df, 18, 3) #C18
         tags["[ABA7_VAO_AJUSTADO]"] = self._cell(df, 18, 4) #D18
@@ -225,8 +225,8 @@ class AseShExcelParser(BaseExcelParser):
         
         tags["[ABA8_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
         tags["[ABA8_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
-        tags["[ABA8_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3)   # C15
-        tags["[ABA8_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4)   # D15
+        tags["[ABA8_TEMPERATURA_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 3))   # C15
+        tags["[ABA8_UMIDADE_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 4))   # D15
         tags["[DISTANCIA_VAO]"] = self._cell(df, 19, 2)   # B19
         tags["[TIPO_PAREDE]"] = self._cell(df, 19, 3)   # C19
         tags["[ÂNGULO_APLICADO]"] = self._cell(df, 19, 4)   # D19
@@ -249,8 +249,8 @@ class AseShExcelParser(BaseExcelParser):
         
         tags["[ABA9_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
         tags["[ABA9_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
-        tags["[ABA9_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3)   # C15
-        tags["[ABA9_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4)   # D15
+        tags["[ABA9_TEMPERATURA_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 3))   # C15
+        tags["[ABA9_UMIDADE_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 4))   # D15
         tags["[ABA9_TEMPO_ENSAIO_INICIAL]"] = self._cell(df, 16, 3)   # C16
         tags["[ABA9_TEMPO_ENSAIO_FINAL]"] = self._cell(df, 16, 4)   # D16
         tags["[ABA9_TIPO_DE_PRODUTO]"] = self._cell(df, 17, 3)   # C17
@@ -270,8 +270,8 @@ class AseShExcelParser(BaseExcelParser):
         
         tags["[ABA10_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
         tags["[ABA10_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
-        tags["[ABA10_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3)   # C15
-        tags["[ABA10_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4)   # D15
+        tags["[ABA10_TEMPERATURA_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 3))   # C15
+        tags["[ABA10_UMIDADE_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 4))   # D15
         tags["[ABA10_COMPRIMENTO_CANULA]"] = self._cell(df, 21, 2)   # B21
         tags["[ABA10_TOLERANCIA__MAXIMA]"] = self._cell(df, 22, 3)   # C22
         tags["[ABA10_TOLERANCIA_MINIMA]"] = self._cell(df, 22, 4)   # D22
@@ -290,8 +290,8 @@ class AseShExcelParser(BaseExcelParser):
         
         tags["[ABA11_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
         tags["[ABA11_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
-        tags["[ABA11_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3)   # C15
-        tags["[ABA11_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4)   # D15
+        tags["[ABA11_TEMPERATURA_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 3))   # C15
+        tags["[ABA11_UMIDADE_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 4))   # D15
         tags["[ABA11_DIAMETRO_EXTERNO]"] = self._cell(df, 18, 2)   # B18
         tags["[ABA11_FORCA_MINIMA]"] = self._cell(df, 18, 3)   # C18
         
@@ -313,8 +313,8 @@ class AseShExcelParser(BaseExcelParser):
         
         tags["[ABA12_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
         tags["[ABA12_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
-        tags["[ABA12_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3)   # C15
-        tags["[ABA12_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4)   # D15
+        tags["[ABA12_TEMPERATURA_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 3))   # C15
+        tags["[ABA12_UMIDADE_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 4))   # D15
         tags["[ABA12_DIAMETRO_EXTERNO]"] = self._cell(df, 21, 2)   # B21
         tags["[ABA12_DIAMETRO_PINO]"] = self._cell(df, 21, 3)   # C21
         tags["[ABA12_TIPO_PAREDE]"] = self._cell(df, 21, 4)   # D21
