@@ -62,6 +62,10 @@ class AseShExcelParser(BaseExcelParser):
 
         # B24 → PH fluido de controle
         tags["[PH_FLUIDO_CONTROLE]"] = self._cell(df, 24, 2)
+        tags["[PH_Temperatura_Relativa]"] = self._cell(df, 16, 3)   # C15
+        tags["[PH_Umidade_Relativa]"] = self._cell(df, 16, 4)   # D15
+        tags["[PH_EQUIPAMENTOS_UTILIZADOS]"] = self._cell(df, 14, 3)   # C15
+        tags["[PH_DATA_EXECUCAO]"] = self._cell(df, 15, 3)   # D15
 
         # B29:B60 → medições 1 a 32
         for excel_row in range(29, 61):
@@ -126,7 +130,7 @@ class AseShExcelParser(BaseExcelParser):
     _ABA5_COL_NAMES = {
         2: "INICIAL",     # Coluna B
         3: "FINAL",    # Coluna C
-        4: "VARIAÇÃO",      # Coluna D
+        4: "VARIACAO",      # Coluna D
         5: "TEMPO",      # Coluna E
         6: "VAZAMENTO",  # Coluna F
         7: "AVALIACAO",     # Coluna G
