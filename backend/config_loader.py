@@ -24,8 +24,13 @@ class Config:
     # 3. Gestão de Logs
     LOG_LEVEL = os.environ.get("LOG_LEVEL", "DEBUG" if DEBUG else "INFO").upper()
     LOGS_FOLDER = os.environ.get("LOGS_FOLDER", "logs")
+
+    # 4. Segurança & Senhas
+    # Suporta múltiplas senhas separadas por vírgula
+    _raw_passwords = os.environ.get("ASE_EXCEL_PASSWORD", "")
+    ASE_EXCEL_PASSWORDS = [p.strip() for p in _raw_passwords.split(",") if p.strip()]
     
-    # 4. Storage & Caminhos (Resolvidos dinamicamente)
+    # 5. Storage & Caminhos (Resolvidos dinamicamente)
     BASE_DIR = Path(__file__).resolve().parent.parent
     
     # Pastas de dados - Aderência ao Factor III (Config)

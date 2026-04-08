@@ -130,4 +130,4 @@ Werkzeug==3.0.1
 xlrd==2.0.1
 
 # adicionar a biblioteca abaixo para o installer da aplicação na raiz do projeto
-PyInstaller==6.19.0
+PyInstaller==6.19.0msoffcrypto-tool

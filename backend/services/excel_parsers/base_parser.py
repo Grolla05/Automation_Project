@@ -1,6 +1,10 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 import re
+import msoffcrypto
+import io
+import pandas as pd
+from config_loader import config
 
 class BaseExcelParser(ABC):
     """
@@ -15,6 +19,37 @@ class BaseExcelParser(ABC):
         e retorna um dicionário JSON contendo as Tags e seus valores (ex: {"[DADOS_CAPTURADOS]": "Aprovado"})
         """
         pass
+
+    def _read_excel_safe(self, file_path: str, sheet_name=None, header=None) -> pd.DataFrame or dict:
+        """
+        Lê um arquivo Excel tratando criptografia/senha se configurado.
+        Tenta múltiplas senhas da lista de configuração.
+        """
+        passwords = config.ASE_EXCEL_PASSWORDS
+        
+        try:
+            # Tenta ler normalmente primeiro
+            return pd.read_excel(file_path, sheet_name=sheet_name, header=header)
+        except Exception as e:
+            # Se falhar e tivermos senhas configuradas, tenta cada uma
+            if passwords:
+                for pwd in passwords:
+                    try:
+                        decrypted_workbook = io.BytesIO()
+                        with open(file_path, "rb") as f:
+                            office_file = msoffcrypto.OfficeFile(f)
+                            office_file.load_key(password=pwd)
+                            office_file.decrypt(decrypted_workbook)
+                        
+                        decrypted_workbook.seek(0)
+                        return pd.read_excel(decrypted_workbook, sheet_name=sheet_name, header=header)
+                    except Exception:
+                        # Senha falhou, tenta a próxima
+                        continue
+                
+                raise Exception(f"Arquivo Excel criptografado e nenhuma das {len(passwords)} senhas fornecidas funcionou.")
+            else:
+                raise Exception(f"Falha ao ler Excel e nenhuma senha configurada em ASE_EXCEL_PASSWORD: {str(e)}")
 
     def _add_date_range_tags(self, tags: dict) -> dict:
         """

@@ -13,7 +13,8 @@ class DefaultExcelParser(BaseExcelParser):
     
     def parse(self, file_path: str) -> dict:
         try:
-            sheets_dict = pd.read_excel(file_path, sheet_name=None)
+            # Usa o método centralizado da BaseExcelParser para lidar com senhas
+            sheets_dict = self._read_excel_safe(file_path, sheet_name=None)
             full_text = []
 
             for sheet_name, df in sheets_dict.items():
