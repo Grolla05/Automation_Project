@@ -62,8 +62,8 @@ class AseShExcelParser(BaseExcelParser):
 
         # B24 → PH fluido de controle
         tags["[PH_FLUIDO_CONTROLE]"] = self._cell(df, 24, 2)
-        tags["[PH_Temperatura_Relativa]"] = self._cell(df, 16, 3)   # C15
-        tags["[PH_Umidade_Relativa]"] = self._cell(df, 16, 4)   # D15
+        tags["[PH_Temperatura_Relativa]"] = self._extract_numeric_value(self._cell(df, 16, 3))   # C15
+        tags["[PH_Umidade_Relativa]"] = self._extract_numeric_value(self._cell(df, 16, 4))   # D15
         tags["[PH_EQUIPAMENTOS_UTILIZADOS]"] = self._cell(df, 14, 3)   # C15
         tags["[PH_DATA_EXECUCAO]"] = self._cell(df, 15, 3)   # D15
 
