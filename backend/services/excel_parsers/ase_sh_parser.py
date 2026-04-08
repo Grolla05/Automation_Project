@@ -374,15 +374,7 @@ class AseShExcelParser(BaseExcelParser):
             sheets_dict = self._read_excel_safe(file_path, sheet_name=None, header=None)
             sheet_names = list(sheets_dict.keys())
 
-            extracted_string = "\n\n".join(full_text).strip()
-            
-            # Encapsula na TAG padrão caso a Factory chame o Default
-            # Usa o método centralizado da BaseExcelParser para lidar com senhas
-            sheets_dict = self._read_excel_safe(file_path, sheet_name=None, header=None)
-            
-            for sheet_name, df in sheets_dict.items():
-
-                extracted_tags = {}
+            extracted_tags = {}
 
             for sheet_idx, sheet_name in enumerate(sheet_names):
                 # Filtra apenas as abas alvo

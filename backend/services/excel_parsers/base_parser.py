@@ -23,33 +23,38 @@ class BaseExcelParser(ABC):
     def _read_excel_safe(self, file_path: str, sheet_name=None, header=None) -> pd.DataFrame or dict:
         """
         Lê um arquivo Excel tratando criptografia/senha se configurado.
-        Tenta múltiplas senhas da lista de configuração.
+        Tenta ler sem senha primeiro, depois tenta as senhas da configuração.
         """
         passwords = config.ASE_EXCEL_PASSWORDS
         
+        # 1. Tenta ler sem senha primeiro
         try:
-            # Tenta ler normalmente primeiro
             return pd.read_excel(file_path, sheet_name=sheet_name, header=header)
-        except Exception as e:
-            # Se falhar e tivermos senhas configuradas, tenta cada uma
-            if passwords:
-                for pwd in passwords:
-                    try:
-                        decrypted_workbook = io.BytesIO()
-                        with open(file_path, "rb") as f:
-                            office_file = msoffcrypto.OfficeFile(f)
-                            office_file.load_key(password=pwd)
-                            office_file.decrypt(decrypted_workbook)
-                        
-                        decrypted_workbook.seek(0)
-                        return pd.read_excel(decrypted_workbook, sheet_name=sheet_name, header=header)
-                    except Exception:
-                        # Senha falhou, tenta a próxima
-                        continue
-                
-                raise Exception(f"Arquivo Excel criptografado e nenhuma das {len(passwords)} senhas fornecidas funcionou.")
-            else:
-                raise Exception(f"Falha ao ler Excel e nenhuma senha configurada em ASE_EXCEL_PASSWORD: {str(e)}")
+        except Exception:
+            # Se falhou (provavelmente criptografado), tentamos as senhas
+            pass
+
+        # 2. Tenta as senhas configuradas
+        if passwords:
+            for pwd in passwords:
+                try:
+                    decrypted_workbook = io.BytesIO()
+                    with open(file_path, "rb") as f:
+                        office_file = msoffcrypto.OfficeFile(f)
+                        office_file.load_key(password=pwd)
+                        office_file.decrypt(decrypted_workbook)
+                    
+                    decrypted_workbook.seek(0)
+                    return pd.read_excel(decrypted_workbook, sheet_name=sheet_name, header=header)
+                except Exception:
+                    # Senha errada ou outro erro, tenta a próxima
+                    continue
+        
+        # 3. Se chegou aqui, falhou em todas as tentativas
+        raise Exception(
+            f"Não foi possível abrir o arquivo Excel '{file_path}'. "
+            f"O arquivo parece estar protegido e nenhuma das {len(passwords)} senhas fornecidas funcionou."
+        )
 
     def _add_date_range_tags(self, tags: dict) -> dict:
         """
