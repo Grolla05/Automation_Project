@@ -91,11 +91,11 @@ export type ImageRequirement = string | { label: string, keywords: string[] };
 const ASE_IMAGE_REQS: ImageRequirement[] = [
   { label: 'Logotipo do Fabricante', keywords: ['logotipo', 'logo', 'fabricante'] },
   { label: 'Foto da Embalagem', keywords: ['foto', 'embalagem'] },
-  { label: 'Foto da Amostra', keywords: ['foto', 'amostra'] },
-  { label: 'Foto do Lacre OCP', keywords: ['foto', 'lacre', 'ocp'] },
-  { label: 'Foto da Embalagem de Transporte', keywords: ['foto', 'embalagem', 'transporte'] },
+  { label: 'Foto da Amostra', keywords: ['foto', 'amostra', 'Amostra', 'ensaio'] },
+  { label: 'Foto do Lacre OCP', keywords: ['foto', 'lacre', 'ocp', 'Lacre'] },
+  { label: 'Foto da Embalagem de Transporte', keywords: ['foto', 'embalagem', 'transporte', 'Embalagem'] },
   { label: 'Foto da Embalagem Secundária', keywords: ['foto', 'embalagem', 'secundaria'] },
-  { label: 'Foto da Etiqueta da Amostra', keywords: ['foto', 'etiqueta', 'amostra'] },
+  { label: 'Foto da Etiqueta da Amostra', keywords: ['foto', 'etiqueta', 'amostra', 'ADM'] },
 ];
 
 export const REQUIRED_IMAGE_FILES: Record<string, ImageRequirement[]> = {
