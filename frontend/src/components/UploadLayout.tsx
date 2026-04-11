@@ -508,7 +508,7 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
                       )}
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-apple-text truncate max-w-[200px] md:max-w-xs">
+                      <p className="text-sm font-medium text-apple-text truncate max-w-50 md:max-w-xs">
                         {file.name}
                       </p>
                       <p className="text-[10px] text-apple-secondary uppercase tracking-wider">
@@ -519,7 +519,7 @@ const UploadLayout = ({ onNext, onBack }: UploadLayoutProps) => {
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); removeFile(index); }}
-                    className="p-2 hover:bg-red-50 hover:text-red-500 rounded-full text-apple-secondary transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                    className="p-2 hover:bg-red-50 hover:text-red-500 rounded-full text-apple-secondary transition-colors min-w-11 min-h-11 flex items-center justify-center"
                     aria-label="Remover arquivo"
                   >
                     <X size={18} />

@@ -86,16 +86,16 @@ export const LAYOUT_MAPPING: Record<string, string> = {
  */
 
 // Agora cada requisito pode ser string ou objeto com sinônimos
-export type ImageRequirement = string | { label: string, keywords: string[] };
+export type ImageRequirement = string | { label: string, keywords: string[], tagName: string };
 
 const ASE_IMAGE_REQS: ImageRequirement[] = [
-  { label: 'Logotipo do Fabricante', keywords: ['logotipo', 'logo', 'fabricante'] },
-  { label: 'Foto da Embalagem', keywords: ['foto', 'embalagem'] },
-  { label: 'Foto da Amostra', keywords: ['foto', 'amostra', 'Amostra', 'ensaio'] },
-  { label: 'Foto do Lacre OCP', keywords: ['foto', 'lacre', 'ocp', 'Lacre'] },
-  { label: 'Foto da Embalagem de Transporte', keywords: ['foto', 'embalagem', 'transporte', 'Embalagem'] },
-  { label: 'Foto da Embalagem Secundária', keywords: ['foto', 'embalagem', 'secundaria'] },
-  { label: 'Foto da Etiqueta da Amostra', keywords: ['foto', 'etiqueta', 'amostra', 'ADM'] },
+  { label: 'Logotipo do Fabricante', keywords: ['logotipo', 'logo', 'fabricante'], tagName: 'foto_fabricante' },
+  { label: 'Foto da Embalagem', keywords: ['foto', 'embalagem'], tagName: 'foto_embalagem' },
+  { label: 'Foto da Amostra', keywords: ['foto', 'amostra', 'Amostra', 'ensaio'], tagName: 'foto_amostra' },
+  { label: 'Foto do Lacre OCP', keywords: ['foto', 'lacre', 'ocp', 'Lacre'], tagName: 'foto_lacre' },
+  { label: 'Foto da Embalagem de Transporte', keywords: ['foto', 'embalagem', 'transporte', 'Embalagem'], tagName: 'foto_embalagem_transporte' },
+  { label: 'Foto da Embalagem Secundária', keywords: ['foto', 'embalagem', 'secundaria'], tagName: 'foto_embalagem_secundaria' },
+  { label: 'Foto da Etiqueta da Amostra', keywords: ['foto', 'etiqueta', 'amostra', 'ADM'], tagName: 'foto_etiqueta' },
 ];
 
 export const REQUIRED_IMAGE_FILES: Record<string, ImageRequirement[]> = {
