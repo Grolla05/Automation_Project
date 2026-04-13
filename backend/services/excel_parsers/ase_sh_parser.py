@@ -26,14 +26,21 @@ class AseShExcelParser(BaseExcelParser):
     #  Utilitário de leitura de célula
     # ──────────────────────────────────────────────
 
-    def _cell(self, df: pd.DataFrame, excel_row: int, excel_col: int) -> str:
+    def _cell(self, df: pd.DataFrame, excel_row: int, excel_col: int, is_numeric: bool = False) -> str:
         """
         Lê uma célula pelo endereço Excel (1-indexado) e retorna string segura.
         excel_col: A=1, B=2, C=3, D=4, E=5, F=6, G=7 ...
+        is_numeric: Se True, aplica a normalização e arredondamento numérico da base.
         """
         try:
             val = df.iloc[excel_row - 1, excel_col - 1]
-            return str(val).strip() if not pd.isna(val) else "N/A"
+            if pd.isna(val):
+                return "N/A"
+            
+            str_val = str(val).strip()
+            if is_numeric:
+                return self._extract_numeric_value(str_val)
+            return str_val
         except IndexError:
             return "N/A"
 
@@ -61,16 +68,17 @@ class AseShExcelParser(BaseExcelParser):
         tags = {}
 
         # B24 → PH fluido de controle
-        tags["[PH_FLUIDO_CONTROLE]"] = self._cell(df, 24, 2)
-        tags["[PH_Temperatura_Relativa]"] = self._extract_numeric_value(self._cell(df, 16, 3))   # C15
-        tags["[PH_Umidade_Relativa]"] = self._extract_numeric_value(self._cell(df, 16, 4))   # D15
-        tags["[PH_EQUIPAMENTOS_UTILIZADOS]"] = self._cell(df, 14, 3)   # C15
-        tags["[PH_DATA_EXECUCAO]"] = self._cell(df, 15, 3)   # D15
+        # Passamos is_numeric=True para células que contêm valores numérico/medidos
+        tags["[PH_FLUIDO_CONTROLE]"] = self._cell(df, 24, 2, is_numeric=True)
+        tags["[PH_Temperatura_Relativa]"] = self._cell(df, 16, 3, is_numeric=True)   # C15 agora usando centralizado
+        tags["[PH_Umidade_Relativa]"] = self._cell(df, 16, 4, is_numeric=True)   # D15
+        tags["[PH_EQUIPAMENTOS_UTILIZADOS]"] = self._cell(df, 14, 3)   # Texto (Equipamento) -> Ignorado
+        tags["[PH_DATA_EXECUCAO]"] = self._cell(df, 15, 3)   # Data -> Ignorado
 
-        # B29:B60 → medições 1 a 32
+        # B29:B60 → medições 1 a 32 (Numéricos)
         for excel_row in range(29, 61):
             med_idx = excel_row - 28
-            tags[f"[MEDICAO_{med_idx}_PH]"] = self._cell(df, excel_row, 2)
+            tags[f"[MEDICAO_{med_idx}_PH]"] = self._cell(df, excel_row, 2, is_numeric=True)
 
         return tags
 
@@ -88,19 +96,19 @@ class AseShExcelParser(BaseExcelParser):
     def _extract_aba3_tags(self, df: pd.DataFrame) -> dict:
         tags = {}
 
-        # --- Células únicas ---
-        tags["[ABA3_Temperatura_Relativa]"] = self._extract_numeric_value(self._cell(df, 15, 3))   # C15
-        tags["[ABA3_Umidade_Relativa]"] = self._extract_numeric_value(self._cell(df, 15, 4))   # D15
-        tags["[ABA3_EQUIPAMENTOS_UTILIZADOS]"] = self._cell(df, 13, 3)   # C15
-        tags["[ABA3_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # D15
+        # --- Células únicas --- (Numéricas)
+        tags["[ABA3_Temperatura_Relativa]"] = self._cell(df, 15, 3, is_numeric=True)   # C15
+        tags["[ABA3_Umidade_Relativa]"] = self._cell(df, 15, 4, is_numeric=True)   # D15
+        tags["[ABA3_EQUIPAMENTOS_UTILIZADOS]"] = self._cell(df, 13, 3)   # Texto
+        tags["[ABA3_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # Data
 
-        # --- Matriz B22:G53 com nomes semânticos ---
+        # --- Matriz B22:G53 com nomes semânticos (Todos numéricos) ---
         # Linha 22 = medição nº 1, linha 53 = medição nº 32
         for excel_row in range(22, 54):                     # linhas 22 a 53
             medicao_num = excel_row - 21                    # 1 a 32
             for excel_col, col_name in self._ABA3_COL_NAMES.items():
                 tag_name = f"[ABA3_{col_name}_{medicao_num}]"
-                tags[tag_name] = self._cell(df, excel_row, excel_col)
+                tags[tag_name] = self._cell(df, excel_row, excel_col, is_numeric=True)
 
         return tags
 
@@ -140,21 +148,24 @@ class AseShExcelParser(BaseExcelParser):
         tags = {}
 
         # --- Células únicas ---
-        tags["[ABA5_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
-        tags["[ABA5_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
-        tags["[ABA5_TEMPERATURA_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 3))   # C15
-        tags["[ABA5_UMIDADE_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 4))   # D15
-        tags["[ABA5_VOLUME]"] = self._cell(df, 18, 3)   # C18
-        tags["[ABA5_LIMITE_PA]"] = self._cell(df, 19, 3)   # C19
-        tags["[ABA5_PRESSAO_MIN]"] = self._cell(df, 18, 6)   # F18
+        tags["[ABA5_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # Texto
+        tags["[ABA5_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # Texto
+        tags["[ABA5_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3, is_numeric=True)   # C15
+        tags["[ABA5_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4, is_numeric=True)   # D15
+        tags["[ABA5_VOLUME]"] = self._cell(df, 18, 3, is_numeric=True)   # C18
+        tags["[ABA5_LIMITE_PA]"] = self._cell(df, 19, 3, is_numeric=True)   # C19
+        tags["[ABA5_PRESSAO_MIN]"] = self._cell(df, 18, 6, is_numeric=True)   # F18
 
         # --- Matriz B21:G52 com nomes semânticos ---
-        # Linha 21 = medição nº 1, linha 52 = medição nº 32
+        # Todas são numéricas, exceto AVALIACAO que pode ser texto (ex: "Passou")
+        # Por precaução, o is_numeric da base_parser é robusto para strings comuns
         for excel_row in range(21, 53):                       # linhas 21 a 52
             medicao_num = excel_row - 20                      # 1 a 32
             for excel_col, col_name in self._ABA5_COL_NAMES.items():
                 tag_name = f"[ABA5_{col_name}_{medicao_num}]"
-                tags[tag_name] = self._cell(df, excel_row, excel_col)
+                # AVALIACAO (col 7) costuma ser texto, vamos omitir is_numeric nela
+                apply_num = True if excel_col != 7 else False
+                tags[tag_name] = self._cell(df, excel_row, excel_col, is_numeric=apply_num)
 
         return tags
 
@@ -176,23 +187,23 @@ class AseShExcelParser(BaseExcelParser):
         tags = {}
 
         # --- Células únicas — linha 20 ---
-        tags["[ABA6_DIAMETRO_EXTERNO]"] = self._cell(df, 20, 2)   # B20
-        tags["[ABA6_TOLERANCIO_MINIMA]"] = self._cell(df, 20, 3)   # C20
-        tags["[ABA6_TOLERANCIO_MAXIMA]"] = self._cell(df, 20, 4)   # D20
-        tags["[ABA6_DIAMETRO_INTERNO]"] = self._cell(df, 20, 5)   # E20
-        tags["[ABA6_TIPO_PAREDE]"] = self._cell(df, 20, 6)   # F20
-        tags["[ABA6_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
-        tags["[ABA6_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
-        tags["[ABA6_TEMPERATURA_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 3))   # C15
-        tags["[ABA6_UMIDADE_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 4))   # D15
+        tags["[ABA6_DIAMETRO_EXTERNO]"] = self._cell(df, 20, 2, is_numeric=True)   # B20
+        tags["[ABA6_TOLERANCIO_MINIMA]"] = self._cell(df, 20, 3, is_numeric=True)   # C20
+        tags["[ABA6_TOLERANCIO_MAXIMA]"] = self._cell(df, 20, 4, is_numeric=True)   # D20
+        tags["[ABA6_DIAMETRO_INTERNO]"] = self._cell(df, 20, 5, is_numeric=True)   # E20
+        tags["[ABA6_TIPO_PAREDE]"] = self._cell(df, 20, 6)   # Texto
+        tags["[ABA6_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # Texto
+        tags["[ABA6_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # Texto
+        tags["[ABA6_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3, is_numeric=True)   # C15
+        tags["[ABA6_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4, is_numeric=True)   # D15
 
         # --- Matriz B24:E55 com nomes semânticos ---
-        # Linha 24 = medição nº 1, linha 55 = medição nº 32
+        # Todas são numéricas
         for excel_row in range(24, 56):                        # linhas 24 a 55
             medicao_num = excel_row - 23                        # 1 a 32
             for excel_col, col_name in self._ABA6_COL_NAMES.items():
                 tag_name = f"[ABA6_{col_name}_{medicao_num}]"
-                tags[tag_name] = self._cell(df, excel_row, excel_col)
+                tags[tag_name] = self._cell(df, excel_row, excel_col, is_numeric=True)
 
         return tags
 
@@ -200,134 +211,122 @@ class AseShExcelParser(BaseExcelParser):
     def _extract_aba7_tags(self, df: pd.DataFrame) -> dict:
         tags = {}
 
-        # --- Células únicas — linha 20 ---
-        tags["[ABA7_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
-        tags["[ABA7_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
-        tags["[ABA7_TEMPERATURA_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 3))   # C15
-        tags["[ABA7_UMIDADE_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 4))   # D15
-        tags["[ABA7_DIAMETRO_EXTERNO]"] = self._cell(df, 18, 2) #B18
+        # --- Células únicas ---
+        tags["[ABA7_EQUIPAMENTOS]"] = self._cell(df, 13, 3)
+        tags["[ABA7_DATA_EXECUCAO]"] = self._cell(df, 14, 3)
+        tags["[ABA7_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3, is_numeric=True)
+        tags["[ABA7_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4, is_numeric=True)
+        tags["[ABA7_DIAMETRO_EXTERNO]"] = self._cell(df, 18, 2, is_numeric=True) #B18
         tags["[ABA7_TIPO_PAREDE]"] = self._cell(df, 18, 3) #C18
-        tags["[ABA7_VAO_AJUSTADO]"] = self._cell(df, 18, 4) #D18
-        tags["[ABA7_FORCA_DOBRAMENTO]"] = self._cell(df, 18, 5) #E18
-        tags["[ABA7_DEFLEXAO_MAXIMA]"] = self._cell(df, 18, 6) #F18
+        tags["[ABA7_VAO_AJUSTADO]"] = self._cell(df, 18, 4, is_numeric=True) #D18
+        tags["[ABA7_FORCA_DOBRAMENTO]"] = self._cell(df, 18, 5, is_numeric=True) #E18
+        tags["[ABA7_DEFLEXAO_MAXIMA]"] = self._cell(df, 18, 6, is_numeric=True) #F18
 
-        # --- Matriz E21:E52 ---
-        # Extrai os valores da coluna E (DEFLEXAO_MEDIDA), linhas 21 a 52
+        # --- Matriz E21:E52 (Numérico) ---
         for excel_row in range(21, 53):
             medicao_num = excel_row - 20
-            tags[f"[ABA7_DEFLEXAO_MEDIDA_{medicao_num}]"] = self._cell(df, excel_row, 5)
+            tags[f"[ABA7_DEFLEXAO_MEDIDA_{medicao_num}]"] = self._cell(df, excel_row, 5, is_numeric=True)
 
         return tags
 
     # ──────────────────────────────────────────────
-    #  Aba 8 (Ressistência a quebra)  — definir células abaixo
-    #   Tags: [ABA8_{col}{row}]
+    #  Aba 8 (Ressistência a quebra)
     # ──────────────────────────────────────────────
 
     def _extract_aba8_tags(self, df: pd.DataFrame) -> dict:
         tags = {}
         
-        tags["[ABA8_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
-        tags["[ABA8_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
-        tags["[ABA8_TEMPERATURA_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 3))   # C15
-        tags["[ABA8_UMIDADE_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 4))   # D15
-        tags["[DISTANCIA_VAO]"] = self._cell(df, 19, 2)   # B19
-        tags["[TIPO_PAREDE]"] = self._cell(df, 19, 3)   # C19
-        tags["[ÂNGULO_APLICADO]"] = self._cell(df, 19, 4)   # D19
+        tags["[ABA8_EQUIPAMENTOS]"] = self._cell(df, 13, 3)
+        tags["[ABA8_DATA_EXECUCAO]"] = self._cell(df, 14, 3)
+        tags["[ABA8_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3, is_numeric=True)
+        tags["[ABA8_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4, is_numeric=True)
+        tags["[DISTANCIA_VAO]"] = self._cell(df, 19, 2, is_numeric=True) 
+        tags["[TIPO_PAREDE]"] = self._cell(df, 19, 3) 
+        tags["[ÂNGULO_APLICADO]"] = self._cell(df, 19, 4, is_numeric=True)
 
-        # --- Matriz B22:B53 ---
-        # Extrai os valores da coluna B, linhas 22 a 53
+        # --- Matriz B22:B53 (Numérico) ---
         for excel_row in range(22, 54):
             medicao_num = excel_row - 21
-            tags[f"[ABA8_VALOR_{medicao_num}]"] = self._cell(df, excel_row, 2)
+            tags[f"[ABA8_VALOR_{medicao_num}]"] = self._cell(df, excel_row, 2, is_numeric=True)
         
         return tags
 
     # ──────────────────────────────────────────────
-    #  Aba 9 (Ressistividade à Corrosão)  — definir células abaixo
-    #   Tags: [ABA9_{col}{row}]
+    #  Aba 9 (Ressistividade à Corrosão)
     # ──────────────────────────────────────────────
 
     def _extract_aba9_tags(self, df: pd.DataFrame) -> dict:
         tags = {}
         
-        tags["[ABA9_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
-        tags["[ABA9_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
-        tags["[ABA9_TEMPERATURA_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 3))   # C15
-        tags["[ABA9_UMIDADE_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 4))   # D15
-        tags["[ABA9_TEMPO_ENSAIO_INICIAL]"] = self._cell(df, 16, 3)   # C16
-        tags["[ABA9_TEMPO_ENSAIO_FINAL]"] = self._cell(df, 16, 4)   # D16
-        tags["[ABA9_TIPO_DE_PRODUTO]"] = self._cell(df, 17, 3)   # C17
-        tags["[ABA9_NUMEROS]"] = self._cell(df, 17, 4)   # D17
+        tags["[ABA9_EQUIPAMENTOS]"] = self._cell(df, 13, 3)
+        tags["[ABA9_DATA_EXECUCAO]"] = self._cell(df, 14, 3)
+        tags["[ABA9_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3, is_numeric=True)
+        tags["[ABA9_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4, is_numeric=True)
+        tags["[ABA9_TEMPO_ENSAIO_INICIAL]"] = self._cell(df, 16, 3) # Horários costumam ser strings
+        tags["[ABA9_TEMPO_ENSAIO_FINAL]"] = self._cell(df, 16, 4)
+        tags["[ABA9_TIPO_DE_PRODUTO]"] = self._cell(df, 17, 3)
+        tags["[ABA9_NUMEROS]"] = self._cell(df, 17, 4, is_numeric=True)
         
-        # --- Matriz B20:B51 ---
-        # Extrai os valores da coluna B, linhas 20 a 51
+        # --- Matriz B20:B51 (Numérico) ---
         for excel_row in range(20, 52):
             medicao_num = excel_row - 19
-            tags[f"[ABA9_VALOR_{medicao_num}]"] = self._cell(df, excel_row, 2)
+            tags[f"[ABA9_VALOR_{medicao_num}]"] = self._cell(df, excel_row, 2, is_numeric=True)
 
         return tags
 
-    #  Aba 10 (Toler. ISO) — definir células abaixo
+    #  Aba 10 (Toler. ISO)
     def _extract_aba10_tags(self, df: pd.DataFrame) -> dict:
         tags = {}
         
-        tags["[ABA10_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
-        tags["[ABA10_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
-        tags["[ABA10_TEMPERATURA_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 3))   # C15
-        tags["[ABA10_UMIDADE_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 4))   # D15
-        tags["[ABA10_COMPRIMENTO_CANULA]"] = self._cell(df, 21, 2)   # B21
-        tags["[ABA10_TOLERANCIA__MAXIMA]"] = self._cell(df, 22, 3)   # C22
-        tags["[ABA10_TOLERANCIA_MINIMA]"] = self._cell(df, 22, 4)   # D22
+        tags["[ABA10_EQUIPAMENTOS]"] = self._cell(df, 13, 3)
+        tags["[ABA10_DATA_EXECUCAO]"] = self._cell(df, 14, 3)
+        tags["[ABA10_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3, is_numeric=True)
+        tags["[ABA10_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4, is_numeric=True)
+        tags["[ABA10_COMPRIMENTO_CANULA]"] = self._cell(df, 21, 2, is_numeric=True)
+        tags["[ABA10_TOLERANCIA__MAXIMA]"] = self._cell(df, 22, 3, is_numeric=True)
+        tags["[ABA10_TOLERANCIA_MINIMA]"] = self._cell(df, 22, 4, is_numeric=True)
         
-        # --- Matriz B26:B57 ---
-        # Extrai os valores da coluna B, linhas 26 a 57
+        # --- Matriz B26:B57 (Numérico) ---
         for excel_row in range(26, 58):
             medicao_num = excel_row - 25
-            tags[f"[ABA10_VALOR_{medicao_num}]"] = self._cell(df, excel_row, 2)
+            tags[f"[ABA10_VALOR_{medicao_num}]"] = self._cell(df, excel_row, 2, is_numeric=True)
         
         return tags
 
-    #  Aba 11 (Canhão e cânula) — definir células abaixo
+    #  Aba 11 (Canhão e cânula)
     def _extract_aba11_tags(self, df: pd.DataFrame) -> dict:
         tags = {}
         
-        tags["[ABA11_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
-        tags["[ABA11_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
-        tags["[ABA11_TEMPERATURA_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 3))   # C15
-        tags["[ABA11_UMIDADE_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 4))   # D15
-        tags["[ABA11_DIAMETRO_EXTERNO]"] = self._cell(df, 18, 2)   # B18
-        tags["[ABA11_FORCA_MINIMA]"] = self._cell(df, 18, 3)   # C18
+        tags["[ABA11_EQUIPAMENTOS]"] = self._cell(df, 13, 3)
+        tags["[ABA11_DATA_EXECUCAO]"] = self._cell(df, 14, 3)
+        tags["[ABA11_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3, is_numeric=True)
+        tags["[ABA11_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4, is_numeric=True)
+        tags["[ABA11_DIAMETRO_EXTERNO]"] = self._cell(df, 18, 2, is_numeric=True)
+        tags["[ABA11_FORCA_MINIMA]"] = self._cell(df, 18, 3, is_numeric=True)
         
-        # --- Matriz B22:B53 ---
-        # Extrai os valores da coluna B, linhas 22 a 53
+        # --- Matriz B22:B53 (Numérico) ---
         for excel_row in range(22, 54):
             medicao_num = excel_row - 21
-            tags[f"[ABA11_VALOR_{medicao_num}]"] = self._cell(df, excel_row, 2)
+            tags[f"[ABA11_VALOR_{medicao_num}]"] = self._cell(df, excel_row, 2, is_numeric=True)
         
         return tags
 
-    # ──────────────────────────────────────────────
-    #  Aba 12 (Diametro interno)— definir células abaixo
-    #   Tags: [ABA12_{col}{row}]
-    # ──────────────────────────────────────────────
-
+    #  Aba 12 (Diametro interno)
     def _extract_aba12_tags(self, df: pd.DataFrame) -> dict:
         tags = {}
         
-        tags["[ABA12_EQUIPAMENTOS]"] = self._cell(df, 13, 3)   # C13
-        tags["[ABA12_DATA_EXECUCAO]"] = self._cell(df, 14, 3)   # C14
-        tags["[ABA12_TEMPERATURA_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 3))   # C15
-        tags["[ABA12_UMIDADE_AMBIENTE]"] = self._extract_numeric_value(self._cell(df, 15, 4))   # D15
-        tags["[ABA12_DIAMETRO_EXTERNO]"] = self._cell(df, 21, 2)   # B21
-        tags["[ABA12_DIAMETRO_PINO]"] = self._cell(df, 21, 3)   # C21
-        tags["[ABA12_TIPO_PAREDE]"] = self._cell(df, 21, 4)   # D21
+        tags["[ABA12_EQUIPAMENTOS]"] = self._cell(df, 13, 3)
+        tags["[ABA12_DATA_EXECUCAO]"] = self._cell(df, 14, 3)
+        tags["[ABA12_TEMPERATURA_AMBIENTE]"] = self._cell(df, 15, 3, is_numeric=True)
+        tags["[ABA12_UMIDADE_AMBIENTE]"] = self._cell(df, 15, 4, is_numeric=True)
+        tags["[ABA12_DIAMETRO_EXTERNO]"] = self._cell(df, 21, 2, is_numeric=True)
+        tags["[ABA12_DIAMETRO_PINO]"] = self._cell(df, 21, 3, is_numeric=True)
+        tags["[ABA12_TIPO_PAREDE]"] = self._cell(df, 21, 4)
         
-        # --- Matriz B25:B56 ---
-        # Extrai os valores da coluna B, linhas 25 a 56
+        # --- Matriz B25:B56 (Numérico) ---
         for excel_row in range(25, 57):
             medicao_num = excel_row - 24
-            tags[f"[ABA12_VALOR_{medicao_num}]"] = self._cell(df, excel_row, 2)
+            tags[f"[ABA12_VALOR_{medicao_num}]"] = self._cell(df, excel_row, 2, is_numeric=True)
         
         return tags
 

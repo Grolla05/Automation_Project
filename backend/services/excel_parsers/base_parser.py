@@ -106,6 +106,7 @@ class BaseExcelParser(ABC):
         """
         Extrai apenas o valor numérico de uma string (ex: 'Temperatura (C°): 25' -> '25').
         Suporta números inteiros e decimais (com ponto ou vírgula).
+        Arredonda para 2 casas decimais se for um número válido.
         """
         if not value or value == "N/A":
             return "N/A"
@@ -113,6 +114,15 @@ class BaseExcelParser(ABC):
         # Regex para encontrar um padrão numérico (ex: 25, 25.5, 25,5)
         match = re.search(r"(\d+[\.,]?\d*)", value)
         if match:
-            return match.group(1).replace(",", ".")  # Normaliza para ponto se necessário
+            num_str = match.group(1).replace(",", ".")  # Normaliza para ponto se necessário
+            try:
+                # Tenta converter para float e arredondar
+                val_float = float(num_str)
+                # Se for um inteiro (ex: 25.0), formatamos como 25, senão com 2 casas
+                if val_float.is_integer():
+                    return str(int(val_float))
+                return f"{val_float:.2f}"
+            except ValueError:
+                return num_str
         
         return value
