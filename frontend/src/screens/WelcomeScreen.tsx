@@ -133,8 +133,8 @@ const WelcomeScreen = () => {
               </Select.Trigger>
 
               <Select.Portal>
-                <Select.Content className="z-[200] overflow-hidden bg-white rounded-xl shadow-xl border border-apple-gray animate-in fade-in zoom-in-95 duration-200">
-                  <Select.ScrollUpButton className="flex items-center justify-center h-[25px] bg-white text-apple-secondary cursor-default">
+                <Select.Content className="z-200 overflow-hidden bg-white rounded-xl shadow-xl border border-apple-gray animate-in fade-in zoom-in-95 duration-200">
+                  <Select.ScrollUpButton className="flex items-center justify-center h-6.25 bg-white text-apple-secondary cursor-default">
                     <ChevronDown className="rotate-180" size={16} />
                   </Select.ScrollUpButton>
                   <Select.Viewport className="p-2">
@@ -142,7 +142,7 @@ const WelcomeScreen = () => {
                       <Select.Item
                         key={s}
                         value={s}
-                        className="relative flex items-center px-8 py-3 text-sm font-medium text-[#1d1d1f] rounded-lg hover:bg-apple-bg hover:text-apple-blue cursor-pointer outline-none focus:bg-apple-blue/10 focus:text-apple-blue transition-colors"
+                        className="relative flex items-center px-8 py-3 text-sm font-medium text-black rounded-lg hover:bg-apple-bg hover:text-apple-blue cursor-pointer outline-none focus:bg-apple-blue/10 focus:text-apple-blue transition-colors"
                       >
                         <Select.ItemText>{s}</Select.ItemText>
                         <Select.ItemIndicator className="absolute left-2 flex items-center justify-center">
@@ -151,7 +151,7 @@ const WelcomeScreen = () => {
                       </Select.Item>
                     ))}
                   </Select.Viewport>
-                  <Select.ScrollDownButton className="flex items-center justify-center h-[25px] bg-white text-apple-secondary cursor-default">
+                  <Select.ScrollDownButton className="flex items-center justify-center h-6.25 bg-white text-apple-secondary cursor-default">
                     <ChevronDown size={16} />
                   </Select.ScrollDownButton>
                 </Select.Content>
@@ -183,7 +183,7 @@ const WelcomeScreen = () => {
                   </Select.Trigger>
 
                   <Select.Portal>
-                    <Select.Content className="z-[200] overflow-hidden bg-white rounded-xl shadow-xl border border-apple-gray animate-in fade-in zoom-in-95 duration-200">
+                    <Select.Content className="z-200 overflow-hidden bg-white rounded-xl shadow-xl border border-apple-gray animate-in fade-in zoom-in-95 duration-200">
                       <Select.Viewport className="p-2">
                         {availableTestTypes.map((t) => (
                           <Select.Item
@@ -232,7 +232,7 @@ const WelcomeScreen = () => {
                   </div>
                 </div>
 
-                <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-3 custom-scrollbar">
+                <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-55 overflow-y-auto pr-3 custom-scrollbar">
                   <legend className="sr-only">Selecione os ensaios desejados</legend>
                   {filteredTests.length > 0 ? (
                     filteredTests.map((test) => {
@@ -270,7 +270,7 @@ const WelcomeScreen = () => {
                             </div>
                             
                             <Checkbox.Indicator className="relative z-10 bg-apple-blue rounded-full p-1 transition-transform animate-in zoom-in duration-200">
-                              <Check size={14} className="text-white stroke-[3]" />
+                              <Check size={14} className="text-white stroke-3" />
                             </Checkbox.Indicator>
                           </Checkbox.Root>
                           

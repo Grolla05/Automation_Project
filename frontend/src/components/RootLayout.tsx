@@ -18,7 +18,7 @@ const RootLayout = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const STEPS = [
-    { path: '/',        label: t('stepper.selection')    },
+    { path: '/welcome',   label: t('stepper.selection')    },
     { path: '/upload',  label: t('stepper.upload')       },
     { path: '/process', label: t('stepper.processing') },
     { path: '/result',  label: t('stepper.result')      },
