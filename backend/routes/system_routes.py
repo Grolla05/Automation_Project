@@ -73,3 +73,42 @@ class Settings(Resource):
                     json.dump(settings, f, indent=2, ensure_ascii=False)
             except: continue
         return {"success": True}
+
+@system_ns.route('/version')
+class Version(Resource):
+    def get(self):
+        """Obtém a versão atual do sistema no servidor"""
+        version_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'version.json')
+        if os.path.exists(version_path):
+            with open(version_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return {"version": "1.0.0"}
+
+@system_ns.route('/update/status')
+class UpdateStatus(Resource):
+    def get(self):
+        """Retorna o progresso atual do download escrito pelo Launcher"""
+        status_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'update_progress.json')
+        if os.path.exists(status_path):
+            try:
+                with open(status_path, 'r') as f:
+                    return json.load(f)
+            except:
+                pass
+        return {"progress": 0, "status": "idle"}
+
+@system_ns.route('/update/start')
+class UpdateStart(Resource):
+    def post(self):
+        """Inicia o processo de atualização (chama o Launcher)"""
+        try:
+            # Opção A: Criar um arquivo flag 'update.lock' que o Launcher detecta
+            with open('update.lock', 'w') as f:
+                f.write('update_requested')
+            
+            # Opção B: Matar o processo atual para que o Launcher/Script de Bash perceba
+            # os.getpid() exit ou similar.
+            # Aqui vamos apenas retornar sucesso para o Frontend fechar a tela.
+            return {"success": True, "message": "Executável de atualização sinalizado."}
+        except Exception as e:
+            return {"success": False, "error": str(e)}, 500

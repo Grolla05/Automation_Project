@@ -135,3 +135,6 @@ xlrd==2.0.1
 # adicionar a biblioteca abaixo para o installer da aplicação na raiz do projeto
 PyInstaller==6.19.0
 msoffcrypto-tool
+
+# Biblioteca para manipulação e extração de novas verções do software (self-update)
+zipfile

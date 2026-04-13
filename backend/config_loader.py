@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -12,6 +13,11 @@ class Config:
     Implementa fallbacks seguros para garantir operacionalidade em qualquer ambiente.
     """
     
+    # 0. Detecção de Ambiente (Frozen vs Script)
+    # No PyInstaller, sys.frozen é True e sys._MEIPASS aponta para a pasta temporária
+    _FROZEN = getattr(sys, 'frozen', False)
+    _ROOT_DIR = sys._MEIPASS if _FROZEN else os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
     # 1. Informações Básicas do App
     APP_NAME = os.environ.get("APP_NAME", "OCR_Automation")
     ENV = os.environ.get("FLASK_ENV", "development")
@@ -31,17 +37,27 @@ class Config:
     ASE_EXCEL_PASSWORDS = [p.strip() for p in _raw_passwords.split(",") if p.strip()]
     
     # 5. Storage & Caminhos (Resolvidos dinamicamente)
-    BASE_DIR = Path(__file__).resolve().parent.parent
+    # Se estiver rodando como EXE, o armazenamento deve ser externo para persistir dados
+    # Se for script, usa a estrutura do projeto
+    BASE_DIR = Path(_ROOT_DIR)
     
-    # Pastas de dados - Aderência ao Factor III (Config)
-    UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", os.path.join("storage", "uploads"))
-    EXPORT_FOLDER = os.environ.get("EXPORT_FOLDER", os.path.join("storage", "exports"))
-    LAYOUT_FOLDER = os.environ.get("LAYOUT_FOLDER", os.path.join("storage", "layout"))
+    # Pastas de dados - Para o executável, preferimos caminhos absolutos fora do temp se possível
+    # Mas para o funcionamento interno do app (como layouts de template), usamos o internal
+    internal_storage = os.path.join(_ROOT_DIR, "storage") if _FROZEN else os.path.join(_ROOT_DIR, "backend", "storage")
+    
+    UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", os.path.join(internal_storage, "uploads"))
+    EXPORT_FOLDER = os.environ.get("EXPORT_FOLDER", os.path.join(internal_storage, "exports"))
+    LAYOUT_FOLDER = os.environ.get("LAYOUT_FOLDER", os.path.join(internal_storage, "layout"))
     
     # Configurações de UI
     UI_WIDTH = int(os.environ.get("UI_WIDTH", 1280))
     UI_HEIGHT = int(os.environ.get("UI_HEIGHT", 1000))
-    FRONTEND_DIST = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist'))
+    
+    # Caminho do Frontend ajustado para EXE vs DEV
+    if _FROZEN:
+        FRONTEND_DIST = os.path.abspath(os.path.join(_ROOT_DIR, 'frontend', 'dist'))
+    else:
+        FRONTEND_DIST = os.path.abspath(os.path.join(_ROOT_DIR, 'frontend', 'dist'))
 
     @classmethod
     def get_all_directories(cls):
