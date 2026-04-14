@@ -10,8 +10,10 @@ jobs:
     name: Build & Release Automation
     runs-on: windows-latest
     permissions:
-      contents: write
-
+      contents: write   # Para fazer o push do version.json e criar a release
+      variables: read   # PARA RESOLVER O ERRO DA IMAGEM (Leitura de variáveis)
+      actions: read     # Opcional, mas ajuda na integração
+      
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
