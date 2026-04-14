@@ -11,7 +11,7 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write   # Para fazer o push do version.json e criar a release
-      variables: read   # PARA RESOLVER O ERRO DA IMAGEM (Leitura de variáveis)
+      variables: write   # PARA RESOLVER O ERRO DA IMAGEM (Leitura de variáveis)
       actions: read     # Opcional, mas ajuda na integração
       
     steps:
