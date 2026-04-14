@@ -3,17 +3,15 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*' # Dispara quando uma tag começando com 'v' (ex: v1.0.0) é criada
+      - 'v*'
 
 jobs:
   build:
     name: Build & Release Automation
     runs-on: windows-latest
     permissions:
-      contents: write   # Para fazer o push do version.json e criar a release
-      variables: write   # PARA RESOLVER O ERRO DA IMAGEM (Leitura de variáveis)
-      actions: read     # Opcional, mas ajuda na integração
-      
+      contents: write
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -34,44 +32,30 @@ jobs:
 
       - name: Build Application Executable
         run: |
-          # Gera o executável Windows
           pyinstaller --noconfirm --onefile --windowed --name "Automation_App" backend/run_desktop.py
 
       - name: Create Update Bundle (ZIP)
         shell: pwsh
         run: |
-          # Verifica se o EXE foi criado antes de prosseguir
           if (!(Test-Path "dist/Automation_App.exe")) { 
-            Write-Error "Erro: O executável Automation_App.exe não foi encontrado na pasta dist."
+            Write-Error "Executável não encontrado!"
             exit 1 
           }
-          
-          # Prepara a pasta para o ZIP
           New-Item -ItemType Directory -Force -Path "dist/bundle"
           Copy-Item "dist/Automation_App.exe" -Destination "dist/bundle/"
-          
-          # Compacta o bundle para o Auto-Updater
           Compress-Archive -Path "dist/bundle/*" -DestinationPath "dist/Automation_App.zip"
 
-      - name: Get Version from Tag
-        id: get_version
-        shell: bash
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-      - name: Update version.json on Cloud
+      - name: Update version.json
         shell: bash
         run: |
-          # Se o arquivo não existir, cria um básico para evitar erro no jq
+          VERSION=${GITHUB_REF#refs/tags/v}
           if [ ! -f version.json ]; then echo '{"version":"0.0.0"}' > version.json; fi
+          jq ".version = \"$VERSION\" | .updated_at = \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"" version.json > temp.json && mv temp.json version.json
           
-          # Atualiza a versão e o timestamp
-          jq ".version = \"${{ steps.get_version.outputs.VERSION }}\" | .updated_at = \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"" version.json > temp.json && mv temp.json version.json
-          
-          # Configura o Git e faz o push da atualização para a branch TUV-main
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add version.json
-          git commit -m "chore: release ${{ github.ref_name }} [skip ci]" || echo "No changes to commit"
+          git commit -m "chore: release $VERSION [skip ci]" || echo "No changes to commit"
           git push origin HEAD:TUV-main
 
       - name: Create GitHub Release
@@ -82,13 +66,7 @@ jobs:
             version.json
           name: Release ${{ github.ref_name }}
           body: |
-            ## 🚀 Nova Versão Disponível: ${{ github.ref_name }}
-            
-            Esta release foi gerada automaticamente pelo CI/CD.
-            - **Automation_App.zip**: Contém o executável e dependências.
-            - **version.json**: Arquivo de manifesto para verificação de update.
-            
-            *Build realizado em: $(date)*
+            Build automatizado para a versão ${{ github.ref_name }}.
           draft: false
           prerelease: false
         env:
