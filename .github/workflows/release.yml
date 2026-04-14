@@ -1,4 +1,5 @@
 name: Build and Release
+
 on:
   push:
     tags:
@@ -7,7 +8,7 @@ on:
 jobs:
   build:
     name: Build & Release Automation
-    runs-on: windows-latest # Necessário para compilar executáveis Windows nativos
+    runs-on: windows-latest
     permissions:
       contents: write
 
@@ -23,26 +24,31 @@ jobs:
           python-version: '3.10'
           cache: 'pip'
 
-      - name: Install Dependencies
+      - name: Install JQ and Build Tools
         run: |
+          choco install jq -y
           python -m pip install --upgrade pip
           pip install pyinstaller -r backend/requirements.txt
 
       - name: Build Application Executable
         run: |
-          # Aqui você deve colocar o comando exato que gera seu Automation_App.exe
-          # Exemplo usando PyInstaller (ajuste conforme seu script principal)
+          # Gera o executável Windows
           pyinstaller --noconfirm --onefile --windowed --name "Automation_App" backend/run_desktop.py
 
       - name: Create Update Bundle (ZIP)
         shell: pwsh
         run: |
-          # Prepara a pasta para o ZIP (incluindo o EXE e outros arquivos necessários)
+          # Verifica se o EXE foi criado antes de prosseguir
+          if (!(Test-Path "dist/Automation_App.exe")) { 
+            Write-Error "Erro: O executável Automation_App.exe não foi encontrado na pasta dist."
+            exit 1 
+          }
+          
+          # Prepara a pasta para o ZIP
           New-Item -ItemType Directory -Force -Path "dist/bundle"
           Copy-Item "dist/Automation_App.exe" -Destination "dist/bundle/"
-          # Adicione aqui outras pastas necessárias (ex: storage/layout se for padrão)
           
-          # Compacta o bundle
+          # Compacta o bundle para o Auto-Updater
           Compress-Archive -Path "dist/bundle/*" -DestinationPath "dist/Automation_App.zip"
 
       - name: Get Version from Tag
@@ -53,9 +59,13 @@ jobs:
       - name: Update version.json on Cloud
         shell: bash
         run: |
-          # Garante que o version.json local reflete a tag da release
+          # Se o arquivo não existir, cria um básico para evitar erro no jq
+          if [ ! -f version.json ]; then echo '{"version":"0.0.0"}' > version.json; fi
+          
+          # Atualiza a versão e o timestamp
           jq ".version = \"${{ steps.get_version.outputs.VERSION }}\" | .updated_at = \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"" version.json > temp.json && mv temp.json version.json
           
+          # Configura o Git e faz o push da atualização para a branch TUV-main
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add version.json
@@ -70,8 +80,13 @@ jobs:
             version.json
           name: Release ${{ github.ref_name }}
           body: |
-            Automatização de Build para a versão ${{ github.ref_name }}.
-            Esta release contém o `Automation_App.zip` pronto para o Auto-Updater.
+            ## 🚀 Nova Versão Disponível: ${{ github.ref_name }}
+            
+            Esta release foi gerada automaticamente pelo CI/CD.
+            - **Automation_App.zip**: Contém o executável e dependências.
+            - **version.json**: Arquivo de manifesto para verificação de update.
+            
+            *Build realizado em: $(date)*
           draft: false
           prerelease: false
         env:
